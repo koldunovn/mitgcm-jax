@@ -98,4 +98,4 @@ in `docs/ENV.md` and [docs/checking_a_change.md](docs/checking_a_change.md), the
 ## License
 
 MIT, see [LICENSE](LICENSE). mitjax is a translation of MITgcm and keeps MITgcm's copyright and permission notice
-(MIT, Copyright (c) 2018 MITgcm Developers and Contributors) in the same file.
+(MIT, Copyright (c) 2018 MITgcm Developers and Contributors) in [LICENSE-MITgcm](LICENSE-MITgcm).

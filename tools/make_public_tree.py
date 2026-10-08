@@ -53,8 +53,9 @@ PUBLISH, KEEP = "publish", "keep"
 # (path or pattern, decision, reason, open). First match wins; "dir/" matches everything below dir.
 CONTENT = [
     # ---------------------------------------------------------------- top level
-    ("LICENSE", PUBLISH, "MIT licence with MITgcm's notice kept (decision 13; holder line Nikolay 2026-10-08)",
-     False),
+    ("LICENSE", PUBLISH, "MIT licence (decision 13; holder line Nikolay 2026-10-08)", False),
+    ("LICENSE-MITgcm", PUBLISH, "MITgcm's copyright and permission notice, verbatim (moved out of LICENSE so that "
+                                "GitHub recognises LICENSE as MIT, Nikolay 2026-10-08)", False),
     ("README.md", PUBLISH, "the entry page", False),
     ("pyproject.toml", PUBLISH, "package metadata; `pip install -e .`", False),
     ("environment.yml", PUBLISH, "the users' conda environment", False),

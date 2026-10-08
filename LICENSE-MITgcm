@@ -1,6 +1,9 @@
-MIT License
+mitjax is a translation of MITgcm (https://github.com/MITgcm/MITgcm, commit
+63cdc0b) into Python/JAX: its code follows the Fortran routine by routine and
+quotes it in comments and docstrings. MITgcm's copyright and permission notice
+(LICENSE.txt of MITgcm at 63cdc0b) is kept here verbatim:
 
-Copyright (c) 2026 MITgcm Developers and Contributors
+Copyright (c) 2018 MITgcm Developers and Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

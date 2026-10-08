@@ -77,8 +77,8 @@ def test_public_tree_build_scan_and_controls(tmp_path, monkeypatch):
                  ".cl" "aude/agents/x.md", "docs/PUBLIC_" "CONTENT.md", "docs/brain" "storm-x.md",
                  "docs/PORTING_RULES_" "INTERNAL.md"):
         assert tool.classify(keep)[0] == tool.KEEP, keep
-    for pub in ("mitjax/api.py", "LICENSE", "docs/install.md", "notebooks/01_quickstart.ipynb", "levante.env",
-                "docs/PORTING_RULES.md"):
+    for pub in ("mitjax/api.py", "LICENSE", "LICENSE-MITgcm", "docs/install.md", "notebooks/01_quickstart.ipynb",
+                "levante.env", "docs/PORTING_RULES.md"):
         assert tool.classify(pub)[0] == tool.PUBLISH, pub
 
     # 2. a throw-away repository: two published files, one kept out

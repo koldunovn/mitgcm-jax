@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 authors = [{ name = "Nikolay Koldunov", email = "koldunovn@gmail.com" }]
 # MIT, with MITgcm's notice kept in the same file (docs plan 20261006 decision 13)
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "LICENSE-MITgcm"]
 # Floors only; the exact set is constraints.txt (docs/ENV.md; environment.yml for users). A user installs mitjax with
 # `pip install -e .` (scripts/pip_install_check.sbatch tests it); our development env `mitjax` gets these dependencies
 # but never mitjax itself: an installed (or editable) mitjax would be imported instead of the worktree under test
