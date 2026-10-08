@@ -1,0 +1,2 @@
+# RSTAR replay runs (relative to $MJX_REFERENCE): experiment input_dir run directory; made by reference/replay_rstar/jobs/replay.sbatch at a03ef63
+global_ocean.90x40x15 input replay_rstar/global_ocean.90x40x15-code-63cdc0b-a03ef63-job27831080/runs/global_ocean.90x40x15/input/job27831080/rundir

@@ -1,0 +1,3 @@
+# PTRACERS replay runs (relative to $MJX_REFERENCE): experiment input_dir run directory; made by reference/replay_ptracers/jobs/replay.sbatch at 8faf6d5 (job 27834322, REPLAY OK; adds GAD_DST3FL_ADV_R to the b69335a harness of job 27833539)
+# superseded: job 27833539 at b69335a (without GAD_DST3FL_ADV_R); job 27833187 at 8739363 (PTRACERS_StepFwd = .FALSE. in the harness)
+tutorial_tracer_adjsens input_ad replay_ptracers/tutorial_tracer_adjsens-code_ad-63cdc0b-8faf6d5-job27834322/runs/tutorial_tracer_adjsens/input_ad/job27834322/rundir

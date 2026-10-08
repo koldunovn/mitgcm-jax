@@ -1,0 +1,261 @@
+{
+ "gates": [
+  {
+   "gate": "gates job",
+   "cls": "ok",
+   "result": "22 passed in 78.00 s",
+   "detail": "mitjax/tests/test_farray.py + test_style_prototype.py"
+  },
+  {
+   "gate": "bitwise vs gfortran (both styles)",
+   "cls": "ok",
+   "result": "0 differing points",
+   "detail": "23 outputs (15 routine cases) x 36 tiles x 15 levels x 16x16 incl. halos and the unwritten rim (138,240 values each), gate XLA flags"
+  },
+  {
+   "gate": "negative controls (must bite)",
+   "cls": "ok",
+   "result": "rim not kept [E\u00a72]: 16,740, association: 14,975, mask dropped: 28,170, factor dropped: 59,812, D/Z swap: 52,712, transposed shift: 121,500",
+   "detail": "points differing from gfortran with the planted error"
+  },
+  {
+   "gate": "identical programs",
+   "cls": "ok",
+   "result": "jaxpr equal; optimized HLO equal modulo names, all 15 cases (CPU) and 10 benchmark programs (A100)",
+   "detail": "debug locations removed; the only textual difference: parameter names from the pytree path (an FArray's storage is child 0); negative control: a re-associated statement differs"
+  },
+  {
+   "gate": "FD vs JAX gradient (both styles)",
+   "cls": "ok",
+   "result": "best FD rel. error 9.0e-13 .. 7.8e-11; tangent vs adjoint <= 4.7e-14",
+   "detail": "9 cases, h = 1e-3..1e-7, random direction over all inputs; DST3 with calcCFL at points with CFL <= 1 (see finding); negative control: stop_gradient(|uTrans|) gives 4e-3"
+  },
+  {
+   "gate": "finite gradients on all lanes",
+   "cls": "ok",
+   "result": "finite (15 cases x 2 styles)",
+   "detail": "every input incl. grid fields and parameters, halos and land; negative control: where(h > 0, 1/h, 0) is NaN backward"
+  },
+  {
+   "gate": "gradients identical between styles",
+   "cls": "ok",
+   "result": "bitwise, all 15 cases",
+   "detail": ""
+  },
+  {
+   "gate": "XLA:CPU divide vs gfortran (gate flags)",
+   "cls": "warn",
+   "result": "0 of 49,672 normal pairs differ; 15,864 of 15,864 pairs with a subnormal differ, all flushed to +-0 by XLA",
+   "detail": "array/array and literal divisors (3.0, 1000.0, 7.0, 0.1) as traced scalar, traced array or Python constant: one divide, no multiply; gfortran == numpy on all 65,536"
+  },
+  {
+   "gate": "XLA:CPU divide with algsimp on",
+   "cls": "warn",
+   "result": "scalar divisor -> x*(1/d): /3.0: 17,143, /1000.0: 6,562, /7.0: 17,474, /0.1: 19,877 normal values differ",
+   "detail": "traced full-array divisor not rewritten (0); a Python-constant divisor leaves no divide at all"
+  }
+ ],
+ "timing": [
+  {
+   "size": "go90",
+   "case": "mom_calc_ke 0",
+   "farray_ms": 0.07360292001976632,
+   "slices_ms": 0.06744968995917588,
+   "ratio": 1.091226958408774,
+   "spread": "0.0731..0.0741 / 0.0674..0.0749",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "go90",
+   "case": "mom_calc_ke 3",
+   "farray_ms": 0.07962713003507815,
+   "slices_ms": 0.07316331000765786,
+   "ratio": 1.0883478348197169,
+   "spread": "0.0790..0.0798 / 0.0729..0.0735",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "go90",
+   "case": "gad_dst3_adv_x True",
+   "farray_ms": 0.07979772999533452,
+   "slices_ms": 0.07334091002121568,
+   "ratio": 1.0880384491036592,
+   "spread": "0.0796..0.0813 / 0.0732..0.0736",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "go90",
+   "case": "mom_vi_hdissip (True, True, False)",
+   "farray_ms": 0.09367916994960979,
+   "slices_ms": 0.0884303599013947,
+   "ratio": 1.0593552944267992,
+   "spread": "0.0930..0.0944 / 0.0880..0.0887",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "go90",
+   "case": "mom_vi_hdissip (True, True, True)",
+   "farray_ms": 0.09617846997571178,
+   "slices_ms": 0.09025816005305387,
+   "ratio": 1.0655930712433972,
+   "spread": "0.0957..0.0965 / 0.0900..0.0904",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "llc90",
+   "case": "mom_calc_ke 0",
+   "farray_ms": 0.1007251899864059,
+   "slices_ms": 0.10082549008075148,
+   "ratio": 0.999005210941546,
+   "spread": "0.1007..0.1009 / 0.1007..0.1011",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "llc90",
+   "case": "mom_calc_ke 3",
+   "farray_ms": 0.19893598000635393,
+   "slices_ms": 0.1991412699862849,
+   "ratio": 0.9989691238790176,
+   "spread": "0.1988..0.1992 / 0.1991..0.1993",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "llc90",
+   "case": "gad_dst3_adv_x True",
+   "farray_ms": 0.1600125600816682,
+   "slices_ms": 0.16063776012742892,
+   "ratio": 0.9961080131765734,
+   "spread": "0.1599..0.1602 / 0.1605..0.1608",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "llc90",
+   "case": "mom_vi_hdissip (True, True, False)",
+   "farray_ms": 0.9614021699235309,
+   "slices_ms": 0.9683758999744896,
+   "ratio": 0.9927985299395179,
+   "spread": "0.9611..0.9880 / 0.9680..0.9944",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "llc90",
+   "case": "mom_vi_hdissip (True, True, True)",
+   "farray_ms": 1.3470727900858037,
+   "slices_ms": 1.3490953798464034,
+   "ratio": 0.9985007807521882,
+   "spread": "1.3462..1.3718 / 1.3484..1.3671",
+   "hlo_identical": true,
+   "bitwise": true
+  },
+  {
+   "size": "go90 (plain-array signature)",
+   "case": "mom_calc_ke 0",
+   "farray_ms": 0.06689839996397495,
+   "slices_ms": 0.06732179987011477,
+   "ratio": 0.9937108053118501,
+   "spread": "0.0663..0.0682 / 0.0668..0.0681",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "go90 (plain-array signature)",
+   "case": "mom_calc_ke 3",
+   "farray_ms": 0.07451031997334212,
+   "slices_ms": 0.07435512001393363,
+   "ratio": 1.0020872800605984,
+   "spread": "0.0740..0.0747 / 0.0739..0.0744",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "go90 (plain-array signature)",
+   "case": "gad_dst3_adv_x True",
+   "farray_ms": 0.07322161007323302,
+   "slices_ms": 0.0735498100402765,
+   "ratio": 0.9955377183589768,
+   "spread": "0.0730..0.0743 / 0.0733..0.0743",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "go90 (plain-array signature)",
+   "case": "mom_vi_hdissip (True, True, False)",
+   "farray_ms": 0.09036937000928447,
+   "slices_ms": 0.09030037006596103,
+   "ratio": 1.0007641158421945,
+   "spread": "0.0901..0.0909 / 0.0882..0.0909",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "go90 (plain-array signature)",
+   "case": "mom_vi_hdissip (True, True, True)",
+   "farray_ms": 0.10025269992183894,
+   "slices_ms": 0.10147449997020885,
+   "ratio": 0.9879595361521504,
+   "spread": "0.0994..0.1005 / 0.1010..0.1019",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "llc90 (plain-array signature)",
+   "case": "mom_calc_ke 0",
+   "farray_ms": 0.10093757999129593,
+   "slices_ms": 0.100914089998696,
+   "ratio": 1.0002327721787931,
+   "spread": "0.1007..0.1010 / 0.1003..0.1011",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "llc90 (plain-array signature)",
+   "case": "mom_calc_ke 3",
+   "farray_ms": 0.1991132801049389,
+   "slices_ms": 0.19875737998518161,
+   "ratio": 1.0017906259369278,
+   "spread": "0.1977..0.1994 / 0.1976..0.1991",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "llc90 (plain-array signature)",
+   "case": "gad_dst3_adv_x True",
+   "farray_ms": 0.15987757011316717,
+   "slices_ms": 0.16000156014342792,
+   "ratio": 0.9992250698671338,
+   "spread": "0.1590..0.1602 / 0.1591..0.4456",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "llc90 (plain-array signature)",
+   "case": "mom_vi_hdissip (True, True, False)",
+   "farray_ms": 0.9641246899263933,
+   "slices_ms": 0.9663015800470021,
+   "ratio": 0.9977471938724318,
+   "spread": "0.9634..0.9904 / 0.9662..0.9936",
+   "hlo_identical": false,
+   "bitwise": true
+  },
+  {
+   "size": "llc90 (plain-array signature)",
+   "case": "mom_vi_hdissip (True, True, True)",
+   "farray_ms": 1.348755090002669,
+   "slices_ms": 1.3508931000251323,
+   "ratio": 0.9984173358925118,
+   "spread": "1.3484..1.3607 / 1.3490..1.3525",
+   "hlo_identical": false,
+   "bitwise": true
+  }
+ ],
+ "timing_note": "Unmarked rows: FArrays passed as jit arguments. Rows marked 'plain-array signature' (job 27826819): the Fortran-index program is called with the same plain arrays as the slices program and builds its FArrays inside the traced program; the HLO check of that run kept the module name (jit__lambda vs jit_f, the only difference; the module name is now normalised and the identity is gated on CPU in test_identical_programs). W = 5, N = 105, 5 interleaved repeats; outputs bitwise equal between the styles in every row."
+}

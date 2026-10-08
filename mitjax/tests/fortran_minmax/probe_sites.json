@@ -1,0 +1,326 @@
+{
+ "compiler": "GNU Fortran (Spack GCC) 11.2.0",
+ "flags": [
+  "-fallow-argument-mismatch",
+  "-fconvert=big-endian",
+  "-fimplicit-none",
+  "-mcmodel=medium",
+  "-Wall",
+  "-Wno-unused-dummy-argument",
+  "-ffp-contract=off",
+  "-O0"
+ ],
+ "tool": "tools/fortran_minmax_sites.file_sites",
+ "probes": {
+  "mmsites.F": [
+   {
+    "routine": "sites",
+    "f_line": 15,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 16,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 19,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 22,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 27,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 33,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   },
+   {
+    "routine": "sites",
+    "f_line": 37,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   },
+   {
+    "routine": "sites",
+    "f_line": 39,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 40,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 42,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 44,
+    "op": "MAX",
+    "nargs": 3,
+    "p": "bb",
+    "gimple_p": "bb"
+   },
+   {
+    "routine": "sites",
+    "f_line": 46,
+    "op": "MAX",
+    "nargs": 3,
+    "p": "bb",
+    "gimple_p": "bb"
+   },
+   {
+    "routine": "sites",
+    "f_line": 48,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   },
+   {
+    "routine": "sites",
+    "f_line": 49,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 50,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   },
+   {
+    "routine": "sites",
+    "f_line": 51,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 54,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 55,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 59,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 63,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 65,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 67,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 67,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sites",
+    "f_line": 69,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   }
+  ],
+  "sfprobe.F": [
+   {
+    "routine": "sf",
+    "f_line": 11,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 11,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 11,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 11,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 15,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 15,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 15,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 15,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 18,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "sf",
+    "f_line": 19,
+    "op": "MIN",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   }
+  ],
+  "chainprobe.F": [
+   {
+    "routine": "chain",
+    "f_line": 26,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   },
+   {
+    "routine": "chain",
+    "f_line": 39,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "b",
+    "gimple_p": "b"
+   },
+   {
+    "routine": "chain",
+    "f_line": 59,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   },
+   {
+    "routine": "chain",
+    "f_line": 60,
+    "op": "MAX",
+    "nargs": 2,
+    "p": "a",
+    "gimple_p": "a"
+   }
+  ]
+ }
+}

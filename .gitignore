@@ -1,0 +1,17 @@
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# data, builds, runs and logs live under $MJX_WORK (mitjax/paths.py), never in this repository
+work
+*.bin
+*.data
+*.meta
+*.npz
+*.npy
+*.nc
+*.o
+*.mod
+slurm-*.out

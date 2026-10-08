@@ -1,0 +1,15 @@
+# M2 coverage data (lane A sessions 6-7): <doc under docs/coverage/> <report under $MJX_REFERENCE/coverage/>
+# gcov binaries <exp>-<code>-63cdc0b-8316e95-gcov (job 27832234); runs job27832235 (cs32x15: job27832359, after the
+# make_rundir fix for input.in_p); reports re-run at d117407 (titles by milestone) as -r27832652, -r27832653.
+# Session 7: gcov binaries <exp>-<code>-63cdc0b-78ca390-gcov (job 27832601) of global_ocean.cs32x15/code_ad and
+# adjustment.cs-32x32x1/code_min, runs and reports job27832650.
+adjustment.cs-32x32x1.md adjustment.cs-32x32x1/coverage-job27832235-r27832652.md
+solid-body.cs-32x32x1.md solid-body.cs-32x32x1/coverage-job27832235-r27832652.md
+advect_cs.md advect_cs/coverage-job27832235-r27832652.md
+global_ocean.cs32x15.md global_ocean.cs32x15/coverage-job27832359-r27832653.md
+global_ocean.90x40x15-code_ad.md global_ocean.90x40x15/coverage-job27832235-r27832652.md
+tutorial_global_oce_latlon.md tutorial_global_oce_latlon/coverage-job27832235-r27832652.md
+tutorial_advection_in_gyre.md tutorial_advection_in_gyre/coverage-job27832235-r27832652.md
+tutorial_tracer_adjsens.md tutorial_tracer_adjsens/coverage-job27832235-r27832652.md
+global_ocean.cs32x15-code_ad.md global_ocean.cs32x15/coverage-job27832650.md
+adjustment.cs-32x32x1-code_min.md adjustment.cs-32x32x1/coverage-job27832650.md

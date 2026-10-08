@@ -1,0 +1,5 @@
+# GAD-A replay runs (relative to $MJX_REFERENCE): experiment input_dir run directory; made by reference/replay_gad_a/jobs/replay.sbatch at c95624e
+global_ocean.90x40x15 input replay_gad_a/global_ocean.90x40x15-code-63cdc0b-c95624e-job27828184/runs/global_ocean.90x40x15/input/job27828184/rundir
+advect_xz input.nlfs replay_gad_a/advect_xz-code-63cdc0b-c95624e-job27828189/runs/advect_xz/input.nlfs/job27828189/rundir
+advect_xy input replay_gad_a/advect_xy-code-63cdc0b-c95624e-job27828191/runs/advect_xy/input/job27828191/rundir
+tutorial_baroclinic_gyre input replay_gad_a/tutorial_baroclinic_gyre-code-63cdc0b-c95624e-job27828195/runs/tutorial_baroclinic_gyre/input/job27828195/rundir

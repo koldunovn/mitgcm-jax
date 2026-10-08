@@ -1,0 +1,13 @@
+# M4 coverage data (lane A session 11): <doc under docs/coverage/> <report under $MJX_REFERENCE/coverage/>
+# gcov binaries <exp>-<code>-63cdc0b-dad681f-gcov (job 27856009), runs job27856010, reports job 27856223 (at 7c620b3);
+# global_ocean.cs32x15 sea-ice variants: the M2 gcov binaries 8316e95 / 78ca390, runs job27855995 / job27855996,
+# reports 27856224 (code) and 27856194 (code_ad)
+1D_ocean_ice_column.md 1D_ocean_ice_column/coverage-job27856010-r27856223.md
+1D_ocean_ice_column-code_ad.md 1D_ocean_ice_column/coverage-job27856010-r27856223-code_ad.md
+offline_exf_seaice.md offline_exf_seaice/coverage-job27856010-r27856223.md
+offline_exf_seaice-code_ad.md offline_exf_seaice/coverage-job27856010-r27856223-code_ad.md
+lab_sea.md lab_sea/coverage-job27856010-r27856223.md
+lab_sea-code_ad.md lab_sea/coverage-job27856010-r27856223-code_ad.md
+seaice_itd.md seaice_itd/coverage-job27856010-r27856223.md
+global_ocean.cs32x15-seaice.md global_ocean.cs32x15/coverage-job27855995-r27856224.md
+global_ocean.cs32x15-seaice-code_ad.md global_ocean.cs32x15/coverage-job27855996-r27856194-code_ad.md

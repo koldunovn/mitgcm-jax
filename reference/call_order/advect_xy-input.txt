@@ -1,0 +1,172 @@
+# call order (debugMode) of advect_xy/input/job27827363-debug
+# 2529 DEBUG_MSG lines, 80 time steps
+
+## initialisation (49 messages)
+ENTERED S/R THE_MODEL_MAIN
+  CALLING S/R INITIALISE_FIXED
+  ENTERED S/R INITIALISE_FIXED
+    CALLING S/R INI_PARMS
+    CALLING S/R PACKAGES_BOOT
+    CALLING S/R PACKAGES_READPARMS
+    CALLING S/R SET_PARMS
+    CALLING S/R INI_MODEL_IO
+    CALLING S/R INI_GRID
+    CALLING S/R LOAD_REF_FILES
+    CALLING S/R INI_EOS
+    CALLING S/R SET_REF_STATE
+    CALLING S/R SET_GRID_FACTORS
+    CALLING S/R INI_DEPTHS
+    CALLING S/R INI_MASKS_ETC
+    CALLING S/R PACKAGES_INIT_FIXED
+    ENTERED S/R PACKAGES_INIT_FIXED
+      CALLING S/R GAD_INIT_FIXED
+    LEAVING S/R PACKAGES_INIT_FIXED
+    CALLING S/R INI_GLOBAL_DOMAIN
+    CALLING S/R INI_LINEAR_PHISURF
+    CALLING S/R INI_CORI
+    CALLING S/R INI_CG2D
+    CALLING S/R CONFIG_SUMMARY
+    CALLING S/R PACKAGES_CHECK
+    CALLING S/R CONFIG_CHECK
+    CALLING S/R WRITE_GRID
+  LEAVING S/R INITIALISE_FIXED
+  CALLING S/R THE_MAIN_LOOP
+  ENTERED S/R THE_MAIN_LOOP
+    CALLING S/R INITIALISE_VARIA
+    ENTERED S/R INITIALISE_VARIA
+      ENTERED S/R INI_NLFS_VARS
+      LEAVING S/R INI_NLFS_VARS
+      CALLING S/R INI_DYNVARS
+      CALLING S/R INI_FIELDS
+      CALLING S/R INI_MIXING
+      CALLING S/R INI_FORCING
+      CALLING S/R PACKAGES_INIT_VARIABLES
+      ENTERED S/R PACKAGES_INIT_VARIABLES
+        CALLING S/R GAD_INIT_VARIA
+      LEAVING S/R PACKAGES_INIT_VARIABLES
+      CALLING S/R INTEGR_CONTINUITY
+      CALLING S/R STATE_SUMMARY
+      CALLING S/R MONITOR
+      CALLING S/R DO_THE_MODEL_IO
+    LEAVING S/R INITIALISE_VARIA
+    ENTERED S/R MAIN_DO_LOOP
+      CALLING S/R FORWARD_STEP
+
+## time step 1 (31 messages)
+ENTERED S/R FORWARD_STEP
+  CALLING S/R LOAD_FIELDS_DRIVER
+  ENTERED S/R LOAD_FIELDS_DRIVER
+    CALLING S/R EXTERNAL_FIELDS_LOAD
+  LEAVING S/R LOAD_FIELDS_DRIVER
+  CALLING S/R DO_ATMOSPHERIC_PHYS
+  ENTERED S/R DO_ATMOSPHERIC_PHYS
+  LEAVING S/R DO_ATMOSPHERIC_PHYS
+  CALLING S/R DO_OCEANIC_PHYS
+  ENTERED S/R DO_OCEANIC_PHYS
+    CALLING S/R EXTERNAL_FORCING_SURF
+    CALLING S/R FIND_RHO_2D (xNr)
+                     ENTERING UPWARD K LOOP (bi=   1, bj=   1)
+    CALLING S/R FIND_RHO_2D (xNr)
+                     ENTERING UPWARD K LOOP (bi=   1, bj=   2)
+  LEAVING S/R DO_OCEANIC_PHYS
+  CALLING S/R THERMODYNAMICS
+  ENTERED S/R THERMODYNAMICS
+    CALLING S/R TEMP_INTEGRATE
+    CALLING S/R GAD_SOM_ADVECT
+    CALLING S/R SALT_INTEGRATE
+    CALLING S/R GAD_ADVECTION
+    CALLING S/R TEMP_INTEGRATE
+    CALLING S/R GAD_SOM_ADVECT
+    CALLING S/R SALT_INTEGRATE
+    CALLING S/R GAD_ADVECTION
+  LEAVING S/R THERMODYNAMICS
+LEAVING S/R FORWARD_STEP
+LEAVING S/R MAIN_DO_LOOP
+ENTERED S/R MAIN_DO_LOOP
+  CALLING S/R FORWARD_STEP
+
+## later time steps compared with step 1
+step 2: identical to step 1 (31 messages)
+step 3: identical to step 1 (31 messages)
+step 4: identical to step 1 (31 messages)
+step 5: identical to step 1 (31 messages)
+step 6: identical to step 1 (31 messages)
+step 7: identical to step 1 (31 messages)
+step 8: identical to step 1 (31 messages)
+step 9: identical to step 1 (31 messages)
+step 10: identical to step 1 (31 messages)
+step 11: identical to step 1 (31 messages)
+step 12: identical to step 1 (31 messages)
+step 13: identical to step 1 (31 messages)
+step 14: identical to step 1 (31 messages)
+step 15: identical to step 1 (31 messages)
+step 16: identical to step 1 (31 messages)
+step 17: identical to step 1 (31 messages)
+step 18: identical to step 1 (31 messages)
+step 19: identical to step 1 (31 messages)
+step 20: identical to step 1 (31 messages)
+step 21: identical to step 1 (31 messages)
+step 22: identical to step 1 (31 messages)
+step 23: identical to step 1 (31 messages)
+step 24: identical to step 1 (31 messages)
+step 25: identical to step 1 (31 messages)
+step 26: identical to step 1 (31 messages)
+step 27: identical to step 1 (31 messages)
+step 28: identical to step 1 (31 messages)
+step 29: identical to step 1 (31 messages)
+step 30: identical to step 1 (31 messages)
+step 31: identical to step 1 (31 messages)
+step 32: identical to step 1 (31 messages)
+step 33: identical to step 1 (31 messages)
+step 34: identical to step 1 (31 messages)
+step 35: identical to step 1 (31 messages)
+step 36: identical to step 1 (31 messages)
+step 37: identical to step 1 (31 messages)
+step 38: identical to step 1 (31 messages)
+step 39: identical to step 1 (31 messages)
+step 40: identical to step 1 (31 messages)
+step 41: identical to step 1 (31 messages)
+step 42: identical to step 1 (31 messages)
+step 43: identical to step 1 (31 messages)
+step 44: identical to step 1 (31 messages)
+step 45: identical to step 1 (31 messages)
+step 46: identical to step 1 (31 messages)
+step 47: identical to step 1 (31 messages)
+step 48: identical to step 1 (31 messages)
+step 49: identical to step 1 (31 messages)
+step 50: identical to step 1 (31 messages)
+step 51: identical to step 1 (31 messages)
+step 52: identical to step 1 (31 messages)
+step 53: identical to step 1 (31 messages)
+step 54: identical to step 1 (31 messages)
+step 55: identical to step 1 (31 messages)
+step 56: identical to step 1 (31 messages)
+step 57: identical to step 1 (31 messages)
+step 58: identical to step 1 (31 messages)
+step 59: identical to step 1 (31 messages)
+step 60: identical to step 1 (31 messages)
+step 61: identical to step 1 (31 messages)
+step 62: identical to step 1 (31 messages)
+step 63: identical to step 1 (31 messages)
+step 64: identical to step 1 (31 messages)
+step 65: identical to step 1 (31 messages)
+step 66: identical to step 1 (31 messages)
+step 67: identical to step 1 (31 messages)
+step 68: identical to step 1 (31 messages)
+step 69: identical to step 1 (31 messages)
+step 70: identical to step 1 (31 messages)
+step 71: identical to step 1 (31 messages)
+step 72: identical to step 1 (31 messages)
+step 73: identical to step 1 (31 messages)
+step 74: identical to step 1 (31 messages)
+step 75: identical to step 1 (31 messages)
+step 76: identical to step 1 (31 messages)
+step 77: identical to step 1 (31 messages)
+step 78: identical to step 1 (31 messages)
+step 79: identical to step 1 (31 messages)
+step 80: identical to step 1 (28 messages)
+
+## after the last time step (3 messages)
+LEAVING S/R MAIN_DO_LOOP
+LEAVING S/R THE_MAIN_LOOP
+LEAVING S/R THE_MODEL_MAIN

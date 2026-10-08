@@ -1,0 +1,1552 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Array Style Comparison</title><style>
+:root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a64; --rule:#dcd8cc; --code:#f3f1ea; --accent:#2f5d8a;
+        --cm:#7a776d; --pp:#8a4b2f; --ok:#2e6b3a; --warn:#8a5a00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#171715; --fg:#e9e7e0; --muted:#a19e94; --rule:#3a3933; --code:#22221f; --accent:#8fb6dd;
+  --cm:#8d8a80; --pp:#d39a7c; --ok:#8fcf9b; --warn:#e3b65a; } }
+:root[data-theme="dark"] { --bg:#171715; --fg:#e9e7e0; --muted:#a19e94; --rule:#3a3933; --code:#22221f;
+  --accent:#8fb6dd; --cm:#8d8a80; --pp:#d39a7c; --ok:#8fcf9b; --warn:#e3b65a; }
+html, body { background:var(--bg); color:var(--fg); margin:0; }
+body { font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; padding: 16px; max-width: 2200px; }
+h1 { font-size: 1.5rem; margin: .2rem 0 .4rem; } h2 { font-size: 1.2rem; margin: 2rem 0 .5rem; }
+p, li { max-width: 72rem; } .muted { color: var(--muted); }
+code { background: var(--code); padding: 0 .25em; border-radius: 3px; font-size: .92em; }
+table.m { border-collapse: collapse; margin: .5rem 0 1rem; font-size: .92rem; }
+table.m th, table.m td { border-bottom: 1px solid var(--rule); padding: .3rem .6rem; text-align: left; vertical-align: top; }
+table.m th { color: var(--muted); font-weight: 600; }
+.ok { color: var(--ok); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
+.sbs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 10px; overflow-x: auto; }
+.sbs .hd { font-weight: 600; padding: .3rem .4rem; border-bottom: 2px solid var(--accent); position: sticky; top: 0;
+           background: var(--bg); z-index: 1; }
+.sbs pre { margin: 0; padding: .15rem .4rem; background: var(--code); font: 12.5px/1.45 ui-monospace, Menlo,
+           Consolas, monospace; white-space: pre; overflow-x: auto; border-top: 1px dashed var(--rule); }
+.ln { color: var(--muted); user-select: none; margin-right: .8em; }
+.cm { color: var(--cm); } .pp { color: var(--pp); }
+@media (max-width: 900px) { .sbs { grid-template-columns: 1fr; } .sbs .hd { position: static; } }
+</style></head><body>
+<h1>MITgcm in JAX: two array styles, side by side</h1>
+<p class='muted'>mitjax plan Task 8 (decision gate). Experiment options: global_ocean.90x40x15/code (36 tiles of 10x10, OLx=OLy=3, Nr=15; ALLOW_AUTODIFF undefined, ALLOW_DIAGNOSTICS defined, MOM_VI_ORIGINAL_VISCA4 and OLD_DST3_FORMULATION undefined).</p>
+
+<p>Three MITgcm master routines (pinned commit <code>63cdc0b</code>) translated literally into JAX in two array styles. Both
+styles produce the same traced program; the choice between them is about reading the code next to the Fortran.
+<b>Nothing here is decided yet:</b> Nikolay (and Martin Losch) choose the style for all physics code from this page.</p>
+<ul>
+<li><b>Fortran-index style</b> (<code>mitjax/farray.py</code>): arrays keep their Fortran declaration
+(<code>uFld(1-OLx:sNx+OLx,1-OLy:sNy+OLy)</code>); a <code>DO</code> loop becomes a loop index object
+(<code>i = loop_i(1-OLx, sNx+OLx-1)</code>), and <code>uFld[i+1, j]</code> means <code>uFld(i+1,j)</code> for every i, j of the
+loops at once. <code>KE = KE.at[i, j].set(expr)</code> is the assignment <code>KE(i,j) = expr</code> inside the loops: the
+points the loops do not reach keep their old values, as in Fortran. Indices are checked against the declared
+bounds; an error reads e.g. <code>uFld(i+2, j): i+2 = 1..8 is outside the declared -1:7 of dimension 1</code>.</li>
+<li><b>Plain-slices style</b>: the same arrays as plain JAX arrays stored <code>[tile, k, j, i]</code> (index order
+reversed, tile first); <code>F(lo, hi, OL)</code> turns a Fortran loop range into a Python slice, shifted indices are
+separate slices (<code>ip1</code> for i+1), level k is storage index <code>kk = k-1</code>, a 1-D field along j is
+<code>cosFacU[:, j, None]</code>.</li>
+<li>In both styles: the <code>bi,bj</code> tile loop is implicit (every array holds all tiles); a statement inside the
+<code>DO j / DO i</code> loops runs on the whole (i,j) range at once (valid because no point reads a value written
+in the same loop); CPP options are static <code>cfg.NAME</code> flags (<code>if cfg.ALLOW_AUTODIFF:</code> mirrors
+<code>#ifdef ALLOW_AUTODIFF</code>); GRID.h and PARAMS.h variables keep their names (<code>grid.recip_dxC</code>,
+<code>params.viscAhD</code>); <code>x.at[...].set(v)</code> returns a new array (JAX arrays are immutable).
+Comments <code># :NN</code> cite the Fortran line.</li>
+</ul>
+
+<h2>Measurements</h2>
+<table class='m'><tr><th>gate</th><th>result</th><th>detail</th></tr><tr><td>gates job</td><td class='ok'>22 passed in 78.00 s</td><td class='muted'>mitjax/tests/test_farray.py + test_style_prototype.py</td></tr><tr><td>bitwise vs gfortran (both styles)</td><td class='ok'>0 differing points</td><td class='muted'>23 outputs (15 routine cases) x 36 tiles x 15 levels x 16x16 incl. halos and the unwritten rim (138,240 values each), gate XLA flags</td></tr><tr><td>negative controls (must bite)</td><td class='ok'>rim not kept [E§2]: 16,740, association: 14,975, mask dropped: 28,170, factor dropped: 59,812, D/Z swap: 52,712, transposed shift: 121,500</td><td class='muted'>points differing from gfortran with the planted error</td></tr><tr><td>identical programs</td><td class='ok'>jaxpr equal; optimized HLO equal modulo names, all 15 cases (CPU) and 10 benchmark programs (A100)</td><td class='muted'>debug locations removed; the only textual difference: parameter names from the pytree path (an FArray&#x27;s storage is child 0); negative control: a re-associated statement differs</td></tr><tr><td>FD vs JAX gradient (both styles)</td><td class='ok'>best FD rel. error 9.0e-13 .. 7.8e-11; tangent vs adjoint &lt;= 4.7e-14</td><td class='muted'>9 cases, h = 1e-3..1e-7, random direction over all inputs; DST3 with calcCFL at points with CFL &lt;= 1 (see finding); negative control: stop_gradient(|uTrans|) gives 4e-3</td></tr><tr><td>finite gradients on all lanes</td><td class='ok'>finite (15 cases x 2 styles)</td><td class='muted'>every input incl. grid fields and parameters, halos and land; negative control: where(h &gt; 0, 1/h, 0) is NaN backward</td></tr><tr><td>gradients identical between styles</td><td class='ok'>bitwise, all 15 cases</td><td class='muted'></td></tr><tr><td>XLA:CPU divide vs gfortran (gate flags)</td><td class='warn'>0 of 49,672 normal pairs differ; 15,864 of 15,864 pairs with a subnormal differ, all flushed to +-0 by XLA</td><td class='muted'>array/array and literal divisors (3.0, 1000.0, 7.0, 0.1) as traced scalar, traced array or Python constant: one divide, no multiply; gfortran == numpy on all 65,536</td></tr><tr><td>XLA:CPU divide with algsimp on</td><td class='warn'>scalar divisor -&gt; x*(1/d): /3.0: 17,143, /1000.0: 6,562, /7.0: 17,474, /0.1: 19,877 normal values differ</td><td class='muted'>traced full-array divisor not rewritten (0); a Python-constant divisor leaves no divide at all</td></tr></table><p>A100 (80 GB) per call, median of interleaved repeats, warm runs only: (t<sub>N</sub> − t<sub>W</sub>)/(N − W), production XLA flags. Unmarked rows: FArrays passed as jit arguments. Rows marked &#x27;plain-array signature&#x27; (job 27826819): the Fortran-index program is called with the same plain arrays as the slices program and builds its FArrays inside the traced program; the HLO check of that run kept the module name (jit__lambda vs jit_f, the only difference; the module name is now normalised and the identity is gated on CPU in test_identical_programs). W = 5, N = 105, 5 interleaved repeats; outputs bitwise equal between the styles in every row.</p><table class='m'><tr><th>size</th><th>routine (case)</th><th>Fortran-index ms</th><th>plain slices ms</th><th>ratio</th><th>min..max (ms)</th></tr><tr><td>go90</td><td>mom_calc_ke 0</td><td>0.0736</td><td>0.0674</td><td>1.091</td><td>0.0731..0.0741 / 0.0674..0.0749</td></tr><tr><td>go90</td><td>mom_calc_ke 3</td><td>0.0796</td><td>0.0732</td><td>1.088</td><td>0.0790..0.0798 / 0.0729..0.0735</td></tr><tr><td>go90</td><td>gad_dst3_adv_x True</td><td>0.0798</td><td>0.0733</td><td>1.088</td><td>0.0796..0.0813 / 0.0732..0.0736</td></tr><tr><td>go90</td><td>mom_vi_hdissip (True, True, False)</td><td>0.0937</td><td>0.0884</td><td>1.059</td><td>0.0930..0.0944 / 0.0880..0.0887</td></tr><tr><td>go90</td><td>mom_vi_hdissip (True, True, True)</td><td>0.0962</td><td>0.0903</td><td>1.066</td><td>0.0957..0.0965 / 0.0900..0.0904</td></tr><tr><td>llc90</td><td>mom_calc_ke 0</td><td>0.1007</td><td>0.1008</td><td>0.999</td><td>0.1007..0.1009 / 0.1007..0.1011</td></tr><tr><td>llc90</td><td>mom_calc_ke 3</td><td>0.1989</td><td>0.1991</td><td>0.999</td><td>0.1988..0.1992 / 0.1991..0.1993</td></tr><tr><td>llc90</td><td>gad_dst3_adv_x True</td><td>0.1600</td><td>0.1606</td><td>0.996</td><td>0.1599..0.1602 / 0.1605..0.1608</td></tr><tr><td>llc90</td><td>mom_vi_hdissip (True, True, False)</td><td>0.9614</td><td>0.9684</td><td>0.993</td><td>0.9611..0.9880 / 0.9680..0.9944</td></tr><tr><td>llc90</td><td>mom_vi_hdissip (True, True, True)</td><td>1.3471</td><td>1.3491</td><td>0.999</td><td>1.3462..1.3718 / 1.3484..1.3671</td></tr><tr><td>go90 (plain-array signature)</td><td>mom_calc_ke 0</td><td>0.0669</td><td>0.0673</td><td>0.994</td><td>0.0663..0.0682 / 0.0668..0.0681</td></tr><tr><td>go90 (plain-array signature)</td><td>mom_calc_ke 3</td><td>0.0745</td><td>0.0744</td><td>1.002</td><td>0.0740..0.0747 / 0.0739..0.0744</td></tr><tr><td>go90 (plain-array signature)</td><td>gad_dst3_adv_x True</td><td>0.0732</td><td>0.0735</td><td>0.996</td><td>0.0730..0.0743 / 0.0733..0.0743</td></tr><tr><td>go90 (plain-array signature)</td><td>mom_vi_hdissip (True, True, False)</td><td>0.0904</td><td>0.0903</td><td>1.001</td><td>0.0901..0.0909 / 0.0882..0.0909</td></tr><tr><td>go90 (plain-array signature)</td><td>mom_vi_hdissip (True, True, True)</td><td>0.1003</td><td>0.1015</td><td>0.988</td><td>0.0994..0.1005 / 0.1010..0.1019</td></tr><tr><td>llc90 (plain-array signature)</td><td>mom_calc_ke 0</td><td>0.1009</td><td>0.1009</td><td>1.000</td><td>0.1007..0.1010 / 0.1003..0.1011</td></tr><tr><td>llc90 (plain-array signature)</td><td>mom_calc_ke 3</td><td>0.1991</td><td>0.1988</td><td>1.002</td><td>0.1977..0.1994 / 0.1976..0.1991</td></tr><tr><td>llc90 (plain-array signature)</td><td>gad_dst3_adv_x True</td><td>0.1599</td><td>0.1600</td><td>0.999</td><td>0.1590..0.1602 / 0.1591..0.4456</td></tr><tr><td>llc90 (plain-array signature)</td><td>mom_vi_hdissip (True, True, False)</td><td>0.9641</td><td>0.9663</td><td>0.998</td><td>0.9634..0.9904 / 0.9662..0.9936</td></tr><tr><td>llc90 (plain-array signature)</td><td>mom_vi_hdissip (True, True, True)</td><td>1.3488</td><td>1.3509</td><td>0.998</td><td>1.3484..1.3607 / 1.3490..1.3525</td></tr></table>
+
+<h2>Findings</h2>
+<ul>
+<li><b>Harness.</b> A genmake2 build of global_ocean.90x40x15/code with THE_MAIN_LOOP replaced
+(<code>reference/replay</code>, after the ECCO port's adx harness): INITIALISE_FIXED gives the experiment's real grid
+(65,624 dry and 4,669 partial cells of 138,240 incl. halos); the harness calls the routines on synthetic inputs for
+all 36 tiles x 15 levels and writes every output array at every point. Its preprocessed routines are byte-identical to
+the oracle build's. cosFacU, cosFacV, recip_deepFacC (all 1 in this experiment) and viscAhZ, viscA4Z (equal to the D
+values) are overridden with distinct synthetic values, so a missing factor or a swap shows.</li>
+<li><b>XLA:CPU flushes subnormals to zero; gfortran does not.</b> With the gate flags XLA's float64 divide equals
+gfortran's for every pair whose operands and quotient are normal numbers, whether the divisor is an array, a traced
+scalar or a Python constant. Every difference involves a subnormal, and XLA returns +-0 there. With algsimp on, a
+scalar divisor is rewritten to x*(1/d), which changes 13 % (d = 1000) to 36 % (d = 7) of normal values; that rewrite, not the divide
+instruction, explains the earlier "13 % of divides off" (fesom_jax).</li>
+<li><b>Reverse mode and the upwind formula.</b> In GAD_DST3_ADV_X, uT = 0.5*(u+|u|)*A + 0.5*(u-|u|)*B. Where A is
+astronomically large (halo rows beyond the domain's N/S edges, where the grid's recip_dxC is 3.7e10 1/m and the CFL
+number 6e14), forward mode gets the exact derivative but reverse mode cancels +-0.5*A*ct and loses the B term: the
+adjoint w.r.t. uTrans is 0 at 3 of 9,216 points. Both styles are identical here (bitwise gradients); a TAF adjoint
+of the same statement would accumulate the same way. The FD gate is applied at points with CFL <= 1.</li>
+<li><b>Timing.</b> Device time is the same (identical programs): with identical call signatures the ratio
+Fortran-index / slices is 0.988 to 1.002 at both sizes. With FArrays passed as jit arguments, the small
+(global_ocean-size, dispatch-bound, 0.07 to 0.1 ms) calls are 6 to 9 % slower, about 5 to 6 microseconds per call
+(reproduced in a second job): JAX flattens each FArray argument (17 grid fields) with a Python callback on every
+call. At the LLC90-like size the same comparison gives 0.993 to 0.999. In a model the state crosses the jit boundary
+once per call of a whole multi-step program, where this cost does not matter; a driver can also pass plain arrays
+and declare the FArrays inside.</li>
+</ul>
+<h2>Readability trade-offs (for the decision, not a recommendation)</h2>
+<table class='m'><tr><th></th><th>Fortran-index style</th><th>plain slices</th></tr>
+<tr><td>index order, bounds</td><td>Fortran's: <code>uFld[i+1, j]</code>, <code>hFacW[i, j, k]</code>, loop bounds as in the
+DO statement</td><td>reversed storage order <code>[:, j, i]</code>, <code>hFacW[:, kk, j, i]</code>, <code>kk = k-1</code>;
+bounds converted by <code>F(lo, hi, OL)</code></td></tr>
+<tr><td>shifted indices</td><td><code>i+1</code>, <code>j-1</code> written inline</td><td>one named slice per shift
+(<code>im2, im1, ip1, jp1</code>), defined next to the loop</td></tr>
+<tr><td>fixed Fortran indices</td><td><code>uT.at[sNx+OLx, j]</code></td><td>storage numbers:
+<code>uT.at[:, j, sNx+2*OLx-1]</code></td></tr>
+<tr><td>1-D fields</td><td><code>cosFacU[j]</code> broadcasts along i</td><td><code>cosFacU[:, j, None]</code> by hand
+(without None it silently aligns j with i when nj == ni)</td></tr>
+<tr><td>points a loop does not write</td><td>keep their value (built in)</td><td>keep their value (<code>.at[].set</code> on
+the slice)</td></tr>
+<tr><td>checks</td><td>bounds, axis (an i loop on a j dimension), declared shape (Nr vs Nr+1), value shape; messages in
+Fortran order</td><td>none: an out-of-range slice is clipped silently</td></tr>
+<tr><td>what a reader must learn</td><td>FArray, loop_i/loop_j, <code>.at[i, j].set</code>; trust a 310-line module</td>
+<td>numpy slicing only</td></tr>
+<tr><td>code length</td><td colspan=2>the same (MOM_CALC_KE 52/51, GAD_DST3_ADV_X 25/27, MOM_VI_HDISSIP 98/98 code
+lines)</td></tr>
+<tr><td>program, gradients, speed</td><td colspan=2>identical programs, bitwise-identical outputs and gradients, equal
+device time</td></tr>
+</table>
+
+<h2>MOM_CALC_KE <span class='muted'>(pkg/mom_common/mom_calc_ke.F @63cdc0b)</span></h2><div class='sbs'><div class='hd'>Fortran mom_calc_ke.F</div><div class='hd'>Fortran-index style (style_farray.py)</div><div class='hd'>plain slices (style_slices.py)</div>
+<pre><span class="ln">   3</span><span class="cm">CBOP</span>
+<span class="ln">   4</span><span class="cm">C !ROUTINE: MOM_CALC_KE</span>
+<span class="ln">   5</span>
+<span class="ln">   6</span><span class="cm">C !INTERFACE: ==========================================================</span>
+<span class="ln">   7</span>      SUBROUTINE MOM_CALC_KE(
+<span class="ln">   8</span>     I        bi,bj,k,KEscheme,
+<span class="ln">   9</span>     I        uFld, vFld,
+<span class="ln">  10</span>     O        KE,
+<span class="ln">  11</span>     I        myThid)
+<span class="ln">  12</span>
+<span class="ln">  13</span><span class="cm">C !DESCRIPTION:</span>
+<span class="ln">  14</span><span class="cm">C Calculates the Kinetic energy of horizontal flow</span>
+<span class="ln">  15</span><span class="cm">C \begin{equation*}</span>
+<span class="ln">  16</span><span class="cm">C KE = \frac{1}{2} \left( h_w \overline{u^2}^i + h_s \overline{v^2}^j \right)</span>
+<span class="ln">  17</span><span class="cm">C \end{equation*}</span>
+<span class="ln">  18</span>
+<span class="ln">  19</span><span class="cm">C !USES: ===============================================================</span>
+<span class="ln">  20</span>      IMPLICIT NONE
+<span class="ln">  21</span><span class="pp">#include &quot;SIZE.h&quot;</span>
+<span class="ln">  22</span><span class="pp">#include &quot;GRID.h&quot;</span>
+<span class="ln">  23</span>
+<span class="ln">  24</span><span class="cm">C !INPUT PARAMETERS: ===================================================</span>
+<span class="ln">  25</span><span class="cm">C  bi,bj                :: tile indices</span>
+<span class="ln">  26</span><span class="cm">C  k                    :: vertical level</span>
+<span class="ln">  27</span><span class="cm">C  KEscheme             :: spacial discretisation scheme for KE</span>
+<span class="ln">  28</span><span class="cm">C  uFld                 :: zonal flow</span>
+<span class="ln">  29</span><span class="cm">C  vFld                 :: meridional flow</span>
+<span class="ln">  30</span><span class="cm">C  KE                   :: Kinetic Energy</span>
+<span class="ln">  31</span><span class="cm">C  myThid               :: thread number</span>
+<span class="ln">  32</span>      INTEGER bi,bj,k
+<span class="ln">  33</span>      _RL uFld(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  34</span>      _RL vFld(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  35</span>      INTEGER KEscheme
+<span class="ln">  36</span>      INTEGER myThid
+<span class="ln">  37</span>
+<span class="ln">  38</span><span class="cm">C !OUTPUT PARAMETERS: ==================================================</span>
+<span class="ln">  39</span><span class="cm">C  KE                   :: Kinetic energy</span>
+<span class="ln">  40</span>      _RL KE(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  41</span>
+<span class="ln">  42</span><span class="cm">C !LOCAL VARIABLES: ====================================================</span>
+<span class="ln">  43</span><span class="cm">C  i,j                  :: loop indices</span>
+<span class="ln">  44</span>      INTEGER i,j
+<span class="ln">  45</span><span class="cm">CEOP</span>
+<span class="ln">  46</span>
+<span class="ln">  47</span><span class="cm">C       This defn of KE should not ever be used. Just to let you know.</span>
+<span class="ln">  48</span><span class="cm">C                            2       2</span>
+<span class="ln">  49</span><span class="cm">C                 1  /  ___I    ___J   \</span>
+<span class="ln">  50</span><span class="cm">C           KE = --- |   U    +  V     |</span>
+<span class="ln">  51</span><span class="cm">C                 2  \                 /</span>
+<span class="ln">  52</span><span class="cm">C</span></pre><pre><span class="ln">  18</span>def mom_calc_ke(k, KEscheme, uFld, vFld, KE, *, cfg, grid):
+<span class="ln">  19</span>    &quot;&quot;&quot;MOM_CALC_KE(bi,bj,k,KEscheme, uFld, vFld, KE, myThid)   @63cdc0b pkg/mom_common/mom_calc_ke.F:7-141
+<span class="ln">  20</span>
+<span class="ln">  21</span>    C !DESCRIPTION:
+<span class="ln">  22</span>    C Calculates the Kinetic energy of horizontal flow
+<span class="ln">  23</span>    C KE = \\frac{1}{2} \\left( h_w \\overline{u^2}^i + h_s \\overline{v^2}^j \\right)
+<span class="ln">  24</span>    C !INPUT PARAMETERS:
+<span class="ln">  25</span>    C  k                    :: vertical level
+<span class="ln">  26</span>    C  KEscheme             :: spacial discretisation scheme for KE
+<span class="ln">  27</span>    C  uFld                 :: zonal flow
+<span class="ln">  28</span>    C  vFld                 :: meridional flow
+<span class="ln">  29</span>    C !OUTPUT PARAMETERS:
+<span class="ln">  30</span>    C  KE                   :: Kinetic energy
+<span class="ln">  31</span>
+<span class="ln">  32</span>    `0.125`, `0.25` and `0.` are Fortran REAL*4 literals, exact in binary, so their float64 values are the same.
+<span class="ln">  33</span>    &quot;&quot;&quot;
+<span class="ln">  34</span>    sNx, sNy, OLx, OLy = cfg.sNx, cfg.sNy, cfg.OLx, cfg.OLy
+<span class="ln">  35</span>    rAw, rAs, recip_rA = grid.rAw, grid.rAs, grid.recip_rA
+<span class="ln">  36</span>    hFacW, hFacS, recip_hFacC = grid.hFacW, grid.hFacS, grid.recip_hFacC
+<span class="ln">  37</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln">  21</span>def mom_calc_ke(k, KEscheme, uFld, vFld, KE, *, cfg, grid):
+<span class="ln">  22</span>    &quot;&quot;&quot;MOM_CALC_KE(bi,bj,k,KEscheme, uFld, vFld, KE, myThid)   @63cdc0b pkg/mom_common/mom_calc_ke.F:7-141
+<span class="ln">  23</span>
+<span class="ln">  24</span>    C !DESCRIPTION:
+<span class="ln">  25</span>    C Calculates the Kinetic energy of horizontal flow
+<span class="ln">  26</span>    C KE = \\frac{1}{2} \\left( h_w \\overline{u^2}^i + h_s \\overline{v^2}^j \\right)
+<span class="ln">  27</span>    C !INPUT PARAMETERS:
+<span class="ln">  28</span>    C  k                    :: vertical level
+<span class="ln">  29</span>    C  KEscheme             :: spacial discretisation scheme for KE
+<span class="ln">  30</span>    C  uFld                 :: zonal flow
+<span class="ln">  31</span>    C  vFld                 :: meridional flow
+<span class="ln">  32</span>    C !OUTPUT PARAMETERS:
+<span class="ln">  33</span>    C  KE                   :: Kinetic energy
+<span class="ln">  34</span>
+<span class="ln">  35</span>    `0.125`, `0.25` and `0.` are Fortran REAL*4 literals, exact in binary, so their float64 values are the same.
+<span class="ln">  36</span>    &quot;&quot;&quot;
+<span class="ln">  37</span>    sNx, sNy, OLx, OLy = cfg.sNx, cfg.sNy, cfg.OLx, cfg.OLy
+<span class="ln">  38</span>    rAw, rAs, recip_rA = grid.rAw, grid.rAs, grid.recip_rA
+<span class="ln">  39</span>    hFacW, hFacS, recip_hFacC = grid.hFacW, grid.hFacS, grid.recip_hFacC
+<span class="ln">  40</span>    kk = k - 1
+<span class="ln">  41</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+<pre><span class="ln">  53</span><span class="pp">#ifdef ALLOW_AUTODIFF</span>
+<span class="ln">  54</span>      DO j=1-OLy,sNy+OLy
+<span class="ln">  55</span>       DO i=1-OLx,sNx+OLx
+<span class="ln">  56</span>         KE(i,j) = 0.
+<span class="ln">  57</span>       ENDDO
+<span class="ln">  58</span>      ENDDO
+<span class="ln">  59</span><span class="pp">#endif</span>
+<span class="ln">  60</span></pre><pre><span class="ln">  38</span>    if cfg.ALLOW_AUTODIFF:                                          <span class="cm"># :53-59</span>
+<span class="ln">  39</span>        j = loop_j(1-OLy, sNy+OLy)
+<span class="ln">  40</span>        i = loop_i(1-OLx, sNx+OLx)
+<span class="ln">  41</span>        KE = KE.at[i, j].set(0.)
+<span class="ln">  42</span>
+<span class="ln">  43</span>    j = loop_j(1-OLy, sNy+OLy-1)                                    <span class="cm"># DO j=1-OLy,sNy+OLy-1 (:62, 77, ...)</span>
+<span class="ln">  44</span>    i = loop_i(1-OLx, sNx+OLx-1)
+</pre><pre><span class="ln">  42</span>    if cfg.ALLOW_AUTODIFF:                                          <span class="cm"># :53-59</span>
+<span class="ln">  43</span>        KE = KE.at[:, F(1-OLy, sNy+OLy, OLy), F(1-OLx, sNx+OLx, OLx)].set(0.)
+<span class="ln">  44</span>
+<span class="ln">  45</span>    j, jp1 = F(1-OLy, sNy+OLy-1, OLy), F(2-OLy, sNy+OLy, OLy)       <span class="cm"># DO j=1-OLy,sNy+OLy-1 ; j+1</span>
+<span class="ln">  46</span>    i, ip1 = F(1-OLx, sNx+OLx-1, OLx), F(2-OLx, sNx+OLx, OLx)       <span class="cm"># DO i=1-OLx,sNx+OLx-1 ; i+1</span>
+
+
+</pre>
+<pre><span class="ln">  61</span>      IF (KEscheme.EQ.-1) THEN
+<span class="ln">  62</span>       DO j=1-OLy,sNy+OLy-1
+<span class="ln">  63</span>        DO i=1-OLx,sNx+OLx-1
+<span class="ln">  64</span>         KE(i,j) = 0.125*(
+<span class="ln">  65</span>     &amp;             ( uFld(i,j)+uFld(i+1, j ) )**2
+<span class="ln">  66</span>     &amp;            +( vFld(i,j)+vFld( i ,j+1) )**2 )
+<span class="ln">  67</span>        ENDDO
+<span class="ln">  68</span>       ENDDO
+<span class="ln">  69</span></pre><pre><span class="ln">  45</span>    if KEscheme == -1:                                              <span class="cm"># :61-68</span>
+<span class="ln">  46</span>        KE = KE.at[i, j].set(0.125*(
+<span class="ln">  47</span>                   (uFld[i, j]+uFld[i+1, j])**2
+<span class="ln">  48</span>                  +(vFld[i, j]+vFld[i, j+1])**2))
+<span class="ln">  49</span>
+
+
+
+</pre><pre><span class="ln">  47</span>    if KEscheme == -1:                                              <span class="cm"># :61-68</span>
+<span class="ln">  48</span>        KE = KE.at[:, j, i].set(0.125*(
+<span class="ln">  49</span>                   (uFld[:, j, i]+uFld[:, j, ip1])**2
+<span class="ln">  50</span>                  +(vFld[:, j, i]+vFld[:, jp1, i])**2))
+<span class="ln">  51</span>
+
+
+
+</pre>
+<pre><span class="ln">  70</span>      ELSEIF (KEscheme.EQ.0) THEN
+<span class="ln">  71</span><span class="cm">C       This defn of KE should be used for the vector invariant equations.</span>
+<span class="ln">  72</span><span class="cm">C                       _____I  _____J</span>
+<span class="ln">  73</span><span class="cm">C                 1  /     2       2   \</span>
+<span class="ln">  74</span><span class="cm">C           KE = --- |   U    +  V     |</span>
+<span class="ln">  75</span><span class="cm">C                 2  \                 /</span>
+<span class="ln">  76</span><span class="cm">C</span>
+<span class="ln">  77</span>       DO j=1-OLy,sNy+OLy-1
+<span class="ln">  78</span>        DO i=1-OLx,sNx+OLx-1
+<span class="ln">  79</span>         KE(i,j) = 0.25*(
+<span class="ln">  80</span>     &amp;           ( uFld( i , j )*uFld( i , j )
+<span class="ln">  81</span>     &amp;            +uFld(i+1, j )*uFld(i+1, j ) )
+<span class="ln">  82</span>     &amp;         + ( vFld( i , j )*vFld( i , j )
+<span class="ln">  83</span>     &amp;            +vFld( i ,j+1)*vFld( i ,j+1) )
+<span class="ln">  84</span>     &amp;                  )
+<span class="ln">  85</span>        ENDDO
+<span class="ln">  86</span>       ENDDO
+<span class="ln">  87</span></pre><pre><span class="ln">  50</span>    elif KEscheme == 0:                                             <span class="cm"># :70-86</span>
+<span class="ln">  51</span>        KE = KE.at[i, j].set(0.25*(
+<span class="ln">  52</span>                 (uFld[i, j]*uFld[i, j]
+<span class="ln">  53</span>                  +uFld[i+1, j]*uFld[i+1, j])
+<span class="ln">  54</span>               + (vFld[i, j]*vFld[i, j]
+<span class="ln">  55</span>                  +vFld[i, j+1]*vFld[i, j+1])
+<span class="ln">  56</span>                        ))
+<span class="ln">  57</span>
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln">  52</span>    elif KEscheme == 0:                                             <span class="cm"># :70-86</span>
+<span class="ln">  53</span>        KE = KE.at[:, j, i].set(0.25*(
+<span class="ln">  54</span>                 (uFld[:, j, i]*uFld[:, j, i]
+<span class="ln">  55</span>                  +uFld[:, j, ip1]*uFld[:, j, ip1])
+<span class="ln">  56</span>               + (vFld[:, j, i]*vFld[:, j, i]
+<span class="ln">  57</span>                  +vFld[:, jp1, i]*vFld[:, jp1, i])
+<span class="ln">  58</span>                        ))
+<span class="ln">  59</span>
+
+
+
+
+
+
+
+
+
+</pre>
+<pre><span class="ln">  88</span>      ELSEIF (KEscheme.EQ.1) THEN
+<span class="ln">  89</span><span class="cm">C       As above but including the area</span>
+<span class="ln">  90</span>       DO j=1-OLy,sNy+OLy-1
+<span class="ln">  91</span>        DO i=1-OLx,sNx+OLx-1
+<span class="ln">  92</span>         KE(i,j) = 0.25*(
+<span class="ln">  93</span>     &amp;           ( uFld(i, j )*uFld(i, j )*rAw(i ,j, bi,bj)
+<span class="ln">  94</span>     &amp;            +uFld(i+1,j)*uFld(i+1,j)*rAw(i+1,j,bi,bj) )
+<span class="ln">  95</span>     &amp;         + ( vFld(i, j )*vFld(i, j )*rAs(i ,j, bi,bj)
+<span class="ln">  96</span>     &amp;            +vFld(i,j+1)*vFld(i,j+1)*rAs(i,j+1,bi,bj) )
+<span class="ln">  97</span>     &amp;                  )*recip_rA(i,j,bi,bj)
+<span class="ln">  98</span>        ENDDO
+<span class="ln">  99</span>       ENDDO
+<span class="ln"> 100</span></pre><pre><span class="ln">  58</span>    elif KEscheme == 1:                                             <span class="cm"># :88-99</span>
+<span class="ln">  59</span>        KE = KE.at[i, j].set(0.25*(
+<span class="ln">  60</span>                 (uFld[i, j]*uFld[i, j]*rAw[i, j]
+<span class="ln">  61</span>                  +uFld[i+1, j]*uFld[i+1, j]*rAw[i+1, j])
+<span class="ln">  62</span>               + (vFld[i, j]*vFld[i, j]*rAs[i, j]
+<span class="ln">  63</span>                  +vFld[i, j+1]*vFld[i, j+1]*rAs[i, j+1])
+<span class="ln">  64</span>                        )*recip_rA[i, j])
+<span class="ln">  65</span>
+
+
+
+
+</pre><pre><span class="ln">  60</span>    elif KEscheme == 1:                                             <span class="cm"># :88-99</span>
+<span class="ln">  61</span>        KE = KE.at[:, j, i].set(0.25*(
+<span class="ln">  62</span>                 (uFld[:, j, i]*uFld[:, j, i]*rAw[:, j, i]
+<span class="ln">  63</span>                  +uFld[:, j, ip1]*uFld[:, j, ip1]*rAw[:, j, ip1])
+<span class="ln">  64</span>               + (vFld[:, j, i]*vFld[:, j, i]*rAs[:, j, i]
+<span class="ln">  65</span>                  +vFld[:, jp1, i]*vFld[:, jp1, i]*rAs[:, jp1, i])
+<span class="ln">  66</span>                        )*recip_rA[:, j, i])
+<span class="ln">  67</span>
+
+
+
+
+</pre>
+<pre><span class="ln"> 101</span>      ELSEIF (KEscheme.EQ.2) THEN
+<span class="ln"> 102</span><span class="cm">C       As KEscheme=0 but including the lopping factors and should be used</span>
+<span class="ln"> 103</span><span class="cm">C       for the conservative form of the momentum equations.</span>
+<span class="ln"> 104</span>       DO j=1-OLy,sNy+OLy-1
+<span class="ln"> 105</span>        DO i=1-OLx,sNx+OLx-1
+<span class="ln"> 106</span>         KE(i,j) = 0.25*(
+<span class="ln"> 107</span>     &amp;           ( uFld( i , j )*uFld( i , j )*_hFacW(i,j,k,bi,bj)
+<span class="ln"> 108</span>     &amp;            +uFld(i+1, j )*uFld(i+1, j )*_hFacW(i+1,j,k,bi,bj) )
+<span class="ln"> 109</span>     &amp;         + ( vFld( i , j )*vFld( i , j )*_hFacS(i,j,k,bi,bj)
+<span class="ln"> 110</span>     &amp;            +vFld( i ,j+1)*vFld( i ,j+1)*_hFacS(i,j+1,k,bi,bj) )
+<span class="ln"> 111</span>     &amp;            )*_recip_hFacC(i,j,k,bi,bj)
+<span class="ln"> 112</span>        ENDDO
+<span class="ln"> 113</span>       ENDDO
+<span class="ln"> 114</span></pre><pre><span class="ln">  66</span>    elif KEscheme == 2:                                             <span class="cm"># :101-113</span>
+<span class="ln">  67</span>        KE = KE.at[i, j].set(0.25*(
+<span class="ln">  68</span>                 (uFld[i, j]*uFld[i, j]*hFacW[i, j, k]
+<span class="ln">  69</span>                  +uFld[i+1, j]*uFld[i+1, j]*hFacW[i+1, j, k])
+<span class="ln">  70</span>               + (vFld[i, j]*vFld[i, j]*hFacS[i, j, k]
+<span class="ln">  71</span>                  +vFld[i, j+1]*vFld[i, j+1]*hFacS[i, j+1, k])
+<span class="ln">  72</span>                  )*recip_hFacC[i, j, k])
+<span class="ln">  73</span>
+
+
+
+
+
+</pre><pre><span class="ln">  68</span>    elif KEscheme == 2:                                             <span class="cm"># :101-113</span>
+<span class="ln">  69</span>        KE = KE.at[:, j, i].set(0.25*(
+<span class="ln">  70</span>                 (uFld[:, j, i]*uFld[:, j, i]*hFacW[:, kk, j, i]
+<span class="ln">  71</span>                  +uFld[:, j, ip1]*uFld[:, j, ip1]*hFacW[:, kk, j, ip1])
+<span class="ln">  72</span>               + (vFld[:, j, i]*vFld[:, j, i]*hFacS[:, kk, j, i]
+<span class="ln">  73</span>                  +vFld[:, jp1, i]*vFld[:, jp1, i]*hFacS[:, kk, jp1, i])
+<span class="ln">  74</span>                  )*recip_hFacC[:, kk, j, i])
+<span class="ln">  75</span>
+
+
+
+
+
+</pre>
+<pre><span class="ln"> 115</span>      ELSEIF (KEscheme.EQ.3) THEN
+<span class="ln"> 116</span><span class="cm">C       As above but including the area</span>
+<span class="ln"> 117</span>       DO j=1-OLy,sNy+OLy-1
+<span class="ln"> 118</span>        DO i=1-OLx,sNx+OLx-1
+<span class="ln"> 119</span>         KE(i,j) = 0.25*(
+<span class="ln"> 120</span>     &amp;           (
+<span class="ln"> 121</span>     &amp;    uFld(i, j )*uFld(i, j )
+<span class="ln"> 122</span>     &amp;        *_hFacW(i ,j, k,bi,bj)*rAw(i ,j, bi,bj)
+<span class="ln"> 123</span>     &amp;   +uFld(i+1,j)*uFld(i+1,j)
+<span class="ln"> 124</span>     &amp;        *_hFacW(i+1,j,k,bi,bj)*rAw(i+1,j,bi,bj)
+<span class="ln"> 125</span>     &amp;           )
+<span class="ln"> 126</span>     &amp;         + (
+<span class="ln"> 127</span>     &amp;    vFld(i, j )*vFld(i, j )
+<span class="ln"> 128</span>     &amp;        *_hFacS(i, j, k,bi,bj)*rAs(i ,j, bi,bj)
+<span class="ln"> 129</span>     &amp;   +vFld(i,j+1)*vFld(i,j+1)
+<span class="ln"> 130</span>     &amp;        *_hFacS(i,j+1,k,bi,bj)*rAs(i,j+1,bi,bj)
+<span class="ln"> 131</span>     &amp;           )      )*_recip_hFacC(i,j,k,bi,bj)
+<span class="ln"> 132</span>     &amp;                   * recip_rA(i,j,bi,bj)
+<span class="ln"> 133</span>        ENDDO
+<span class="ln"> 134</span>       ENDDO
+<span class="ln"> 135</span></pre><pre><span class="ln">  74</span>    elif KEscheme == 3:                                             <span class="cm"># :115-134</span>
+<span class="ln">  75</span>        KE = KE.at[i, j].set(0.25*(
+<span class="ln">  76</span>                 (
+<span class="ln">  77</span>          uFld[i, j]*uFld[i, j]
+<span class="ln">  78</span>              *hFacW[i, j, k]*rAw[i, j]
+<span class="ln">  79</span>         +uFld[i+1, j]*uFld[i+1, j]
+<span class="ln">  80</span>              *hFacW[i+1, j, k]*rAw[i+1, j]
+<span class="ln">  81</span>                 )
+<span class="ln">  82</span>               + (
+<span class="ln">  83</span>          vFld[i, j]*vFld[i, j]
+<span class="ln">  84</span>              *hFacS[i, j, k]*rAs[i, j]
+<span class="ln">  85</span>         +vFld[i, j+1]*vFld[i, j+1]
+<span class="ln">  86</span>              *hFacS[i, j+1, k]*rAs[i, j+1]
+<span class="ln">  87</span>                 ))*recip_hFacC[i, j, k]
+<span class="ln">  88</span>                         *recip_rA[i, j])
+<span class="ln">  89</span>
+
+
+
+
+</pre><pre><span class="ln">  76</span>    elif KEscheme == 3:                                             <span class="cm"># :115-134</span>
+<span class="ln">  77</span>        KE = KE.at[:, j, i].set(0.25*(
+<span class="ln">  78</span>                 (
+<span class="ln">  79</span>          uFld[:, j, i]*uFld[:, j, i]
+<span class="ln">  80</span>              *hFacW[:, kk, j, i]*rAw[:, j, i]
+<span class="ln">  81</span>         +uFld[:, j, ip1]*uFld[:, j, ip1]
+<span class="ln">  82</span>              *hFacW[:, kk, j, ip1]*rAw[:, j, ip1]
+<span class="ln">  83</span>                 )
+<span class="ln">  84</span>               + (
+<span class="ln">  85</span>          vFld[:, j, i]*vFld[:, j, i]
+<span class="ln">  86</span>              *hFacS[:, kk, j, i]*rAs[:, j, i]
+<span class="ln">  87</span>         +vFld[:, jp1, i]*vFld[:, jp1, i]
+<span class="ln">  88</span>              *hFacS[:, kk, jp1, i]*rAs[:, jp1, i]
+<span class="ln">  89</span>                 ))*recip_hFacC[:, kk, j, i]
+<span class="ln">  90</span>                         *recip_rA[:, j, i])
+<span class="ln">  91</span>
+
+
+
+
+</pre>
+<pre><span class="ln"> 136</span>      ELSE
+<span class="ln"> 137</span>       STOP &#x27;S/R MOM_CALC_KE: We should never reach this point!&#x27;
+<span class="ln"> 138</span>      ENDIF
+<span class="ln"> 139</span>
+<span class="ln"> 140</span>      RETURN
+<span class="ln"> 141</span>      END</pre><pre><span class="ln">  90</span>    else:                                                           <span class="cm"># :136-137</span>
+<span class="ln">  91</span>        raise ValueError(&quot;S/R MOM_CALC_KE: We should never reach this point!&quot;)
+<span class="ln">  92</span>
+<span class="ln">  93</span>    return KE
+
+</pre><pre><span class="ln">  92</span>    else:                                                           <span class="cm"># :136-137</span>
+<span class="ln">  93</span>        raise ValueError(&quot;S/R MOM_CALC_KE: We should never reach this point!&quot;)
+<span class="ln">  94</span>
+<span class="ln">  95</span>    return KE
+
+</pre>
+</div>
+<h2>GAD_DST3_ADV_X <span class='muted'>(pkg/generic_advdiff/gad_dst3_adv_x.F @63cdc0b)</span></h2><div class='sbs'><div class='hd'>Fortran gad_dst3_adv_x.F</div><div class='hd'>Fortran-index style (style_farray.py)</div><div class='hd'>plain slices (style_slices.py)</div>
+<pre><span class="ln">   3</span><span class="cm">CBOP</span>
+<span class="ln">   4</span><span class="cm">C !ROUTINE: GAD_DST3_ADV_X</span>
+<span class="ln">   5</span>
+<span class="ln">   6</span><span class="cm">C !INTERFACE: ==========================================================</span>
+<span class="ln">   7</span>      SUBROUTINE GAD_DST3_ADV_X(
+<span class="ln">   8</span>     I           bi,bj,k, calcCFL, deltaTloc,
+<span class="ln">   9</span>     I           uTrans, uFld,
+<span class="ln">  10</span>     I           maskLocW, tracer,
+<span class="ln">  11</span>     O           uT,
+<span class="ln">  12</span>     I           myThid )
+<span class="ln">  13</span>
+<span class="ln">  14</span><span class="cm">C !DESCRIPTION:</span>
+<span class="ln">  15</span><span class="cm">C  Calculates the area integrated zonal flux due to advection of a</span>
+<span class="ln">  16</span><span class="cm">C  tracer using 3rd-order Direct Space and Time (DST-3) Advection Scheme</span>
+<span class="ln">  17</span>
+<span class="ln">  18</span><span class="cm">C !USES: ===============================================================</span>
+<span class="ln">  19</span>      IMPLICIT NONE
+<span class="ln">  20</span>
+<span class="ln">  21</span><span class="cm">C     == GLobal variables ==</span>
+<span class="ln">  22</span><span class="pp">#include &quot;SIZE.h&quot;</span>
+<span class="ln">  23</span><span class="pp">#ifdef OLD_DST3_FORMULATION</span>
+<span class="ln">  24</span><span class="pp">#include &quot;EEPARAMS.h&quot;</span>
+<span class="ln">  25</span><span class="pp">#include &quot;PARAMS.h&quot;</span>
+<span class="ln">  26</span><span class="pp">#endif</span>
+<span class="ln">  27</span><span class="pp">#include &quot;GRID.h&quot;</span>
+<span class="ln">  28</span><span class="pp">#include &quot;GAD.h&quot;</span>
+<span class="ln">  29</span>
+<span class="ln">  30</span><span class="cm">C     == Routine arguments ==</span>
+<span class="ln">  31</span><span class="cm">C !INPUT PARAMETERS: ===================================================</span>
+<span class="ln">  32</span><span class="cm">C  bi,bj             :: tile indices</span>
+<span class="ln">  33</span><span class="cm">C  k                 :: vertical level</span>
+<span class="ln">  34</span><span class="cm">C  calcCFL           :: =T: calculate CFL number ; =F: take uFld as CFL.</span>
+<span class="ln">  35</span><span class="cm">C  deltaTloc         :: local time-step (s)</span>
+<span class="ln">  36</span><span class="cm">C  uTrans            :: zonal volume transport</span>
+<span class="ln">  37</span><span class="cm">C  uFld              :: zonal flow / CFL number</span>
+<span class="ln">  38</span><span class="cm">C  tracer            :: tracer field</span>
+<span class="ln">  39</span><span class="cm">C  myThid            :: thread number</span>
+<span class="ln">  40</span>      INTEGER bi,bj,k
+<span class="ln">  41</span>      LOGICAL calcCFL
+<span class="ln">  42</span>      _RL deltaTloc
+<span class="ln">  43</span>      _RL uTrans(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  44</span>      _RL uFld  (1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  45</span>      _RS maskLocW(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  46</span>      _RL tracer(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  47</span>      INTEGER myThid
+<span class="ln">  48</span>
+<span class="ln">  49</span><span class="cm">C !OUTPUT PARAMETERS: ==================================================</span>
+<span class="ln">  50</span><span class="cm">C  uT                :: zonal advective flux</span>
+<span class="ln">  51</span>      _RL uT    (1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  52</span>
+<span class="ln">  53</span><span class="cm">C     == Local variables ==</span>
+<span class="ln">  54</span><span class="cm">C !LOCAL VARIABLES: ====================================================</span>
+<span class="ln">  55</span><span class="cm">C  i,j               :: loop indices</span>
+<span class="ln">  56</span><span class="cm">C  uCFL              :: Courant-Friedrich-Levy number</span>
+<span class="ln">  57</span>      INTEGER i,j
+<span class="ln">  58</span>      _RL Rjm,Rj,Rjp,uCFL,d0,d1
+<span class="ln">  59</span><span class="pp">#ifdef OLD_DST3_FORMULATION</span>
+<span class="ln">  60</span>      _RL psiP,psiM,thetaP,thetaM
+<span class="ln">  61</span>      _RL smallNo
+<span class="ln">  62</span><span class="cm">c     _RL Rjjm,Rjjp</span>
+<span class="ln">  63</span>
+<span class="ln">  64</span><span class="cm">c     IF (inAdMode .AND. useApproxAdvectionInAdMode) THEN</span>
+<span class="ln">  65</span><span class="cm">c      smallNo = 1.0D-20</span>
+<span class="ln">  66</span><span class="cm">c     ELSE</span>
+<span class="ln">  67</span>       smallNo = 1.0D-20
+<span class="ln">  68</span><span class="cm">c     ENDIF</span>
+<span class="ln">  69</span><span class="pp">#endif</span>
+<span class="ln">  70</span></pre><pre><span class="ln">  96</span>def gad_dst3_adv_x(k, calcCFL, deltaTloc, uTrans, uFld, maskLocW, tracer, uT, *, cfg, grid):
+<span class="ln">  97</span>    &quot;&quot;&quot;GAD_DST3_ADV_X(bi,bj,k, calcCFL, deltaTloc, uTrans, uFld, maskLocW, tracer, uT, myThid)
+<span class="ln">  98</span>    @63cdc0b pkg/generic_advdiff/gad_dst3_adv_x.F:7-121
+<span class="ln">  99</span>
+<span class="ln"> 100</span>    C !DESCRIPTION:
+<span class="ln"> 101</span>    C  Calculates the area integrated zonal flux due to advection of a
+<span class="ln"> 102</span>    C  tracer using 3rd-order Direct Space and Time (DST-3) Advection Scheme
+<span class="ln"> 103</span>    C !INPUT PARAMETERS:
+<span class="ln"> 104</span>    C  k                 :: vertical level
+<span class="ln"> 105</span>    C  calcCFL           :: =T: calculate CFL number ; =F: take uFld as CFL.
+<span class="ln"> 106</span>    C  deltaTloc         :: local time-step (s)
+<span class="ln"> 107</span>    C  uTrans            :: zonal volume transport
+<span class="ln"> 108</span>    C  uFld              :: zonal flow / CFL number
+<span class="ln"> 109</span>    C  tracer            :: tracer field
+<span class="ln"> 110</span>    C !OUTPUT PARAMETERS:
+<span class="ln"> 111</span>    C  uT                :: zonal advective flux
+<span class="ln"> 112</span>
+<span class="ln"> 113</span>    The Fortran spells the argument `tracer` also as `Tracer` (:112, :114; Fortran is case-insensitive). The point
+<span class="ln"> 114</span>    loop body (:78-114) works on scalars per (i,j); here every statement runs on the whole (i,j) range at once, which
+<span class="ln"> 115</span>    is the same computation because each point reads only inputs. `2.`, `1.`, `0.5`, `0.` are REAL*4 literals,
+<span class="ln"> 116</span>    exact in binary. <span class="cm">#ifdef OLD_DST3_FORMULATION (:87-108) is not ported: not defined in the experiment&#x27;s options.</span>
+<span class="ln"> 117</span>    &quot;&quot;&quot;
+<span class="ln"> 118</span>    if cfg.OLD_DST3_FORMULATION:
+<span class="ln"> 119</span>        raise NotImplementedError(&quot;GAD_DST3_ADV_X: OLD_DST3_FORMULATION is not ported&quot;)
+<span class="ln"> 120</span>    sNx, sNy, OLx, OLy = cfg.sNx, cfg.sNy, cfg.OLx, cfg.OLy
+<span class="ln"> 121</span>    recip_dxC, recip_deepFacC = grid.recip_dxC, grid.recip_deepFacC
+<span class="ln"> 122</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln">  98</span>def gad_dst3_adv_x(k, calcCFL, deltaTloc, uTrans, uFld, maskLocW, tracer, uT, *, cfg, grid):
+<span class="ln">  99</span>    &quot;&quot;&quot;GAD_DST3_ADV_X(bi,bj,k, calcCFL, deltaTloc, uTrans, uFld, maskLocW, tracer, uT, myThid)
+<span class="ln"> 100</span>    @63cdc0b pkg/generic_advdiff/gad_dst3_adv_x.F:7-121
+<span class="ln"> 101</span>
+<span class="ln"> 102</span>    C !DESCRIPTION:
+<span class="ln"> 103</span>    C  Calculates the area integrated zonal flux due to advection of a
+<span class="ln"> 104</span>    C  tracer using 3rd-order Direct Space and Time (DST-3) Advection Scheme
+<span class="ln"> 105</span>    C !INPUT PARAMETERS:
+<span class="ln"> 106</span>    C  k                 :: vertical level
+<span class="ln"> 107</span>    C  calcCFL           :: =T: calculate CFL number ; =F: take uFld as CFL.
+<span class="ln"> 108</span>    C  deltaTloc         :: local time-step (s)
+<span class="ln"> 109</span>    C  uTrans            :: zonal volume transport
+<span class="ln"> 110</span>    C  uFld              :: zonal flow / CFL number
+<span class="ln"> 111</span>    C  tracer            :: tracer field
+<span class="ln"> 112</span>    C !OUTPUT PARAMETERS:
+<span class="ln"> 113</span>    C  uT                :: zonal advective flux
+<span class="ln"> 114</span>
+<span class="ln"> 115</span>    The Fortran spells the argument `tracer` also as `Tracer` (:112, :114; Fortran is case-insensitive). The point
+<span class="ln"> 116</span>    loop body (:78-114) works on scalars per (i,j); here every statement runs on the whole (i,j) range at once, which
+<span class="ln"> 117</span>    is the same computation because each point reads only inputs. `2.`, `1.`, `0.5`, `0.` are REAL*4 literals,
+<span class="ln"> 118</span>    exact in binary. <span class="cm">#ifdef OLD_DST3_FORMULATION (:87-108) is not ported: not defined in the experiment&#x27;s options.</span>
+<span class="ln"> 119</span>    &quot;&quot;&quot;
+<span class="ln"> 120</span>    if cfg.OLD_DST3_FORMULATION:
+<span class="ln"> 121</span>        raise NotImplementedError(&quot;GAD_DST3_ADV_X: OLD_DST3_FORMULATION is not ported&quot;)
+<span class="ln"> 122</span>    sNx, sNy, OLx, OLy = cfg.sNx, cfg.sNy, cfg.OLx, cfg.OLy
+<span class="ln"> 123</span>    recip_dxC, recip_deepFacC = grid.recip_dxC, grid.recip_deepFacC
+<span class="ln"> 124</span>    kk = k - 1
+<span class="ln"> 125</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+<pre><span class="ln">  71</span>      DO j=1-OLy,sNy+OLy
+<span class="ln">  72</span>       uT(1-OLx,j)=0.
+<span class="ln">  73</span>       uT(2-OLx,j)=0.
+<span class="ln">  74</span>       uT(sNx+OLx,j)=0.
+<span class="ln">  75</span>      ENDDO</pre><pre><span class="ln"> 123</span>    j = loop_j(1-OLy, sNy+OLy)                                      <span class="cm"># :71-75</span>
+<span class="ln"> 124</span>    uT = uT.at[1-OLx, j].set(0.)
+<span class="ln"> 125</span>    uT = uT.at[2-OLx, j].set(0.)
+<span class="ln"> 126</span>    uT = uT.at[sNx+OLx, j].set(0.)
+<span class="ln"> 127</span></pre><pre><span class="ln"> 126</span>    j = F(1-OLy, sNy+OLy, OLy)                                      <span class="cm"># :71-75  DO j=1-OLy,sNy+OLy</span>
+<span class="ln"> 127</span>    uT = uT.at[:, j, 0].set(0.)                                     <span class="cm"># uT(1-OLx,j)</span>
+<span class="ln"> 128</span>    uT = uT.at[:, j, 1].set(0.)                                     <span class="cm"># uT(2-OLx,j)</span>
+<span class="ln"> 129</span>    uT = uT.at[:, j, sNx+2*OLx-1].set(0.)                           <span class="cm"># uT(sNx+OLx,j)</span>
+<span class="ln"> 130</span></pre>
+<pre><span class="ln">  76</span>      DO j=1-OLy,sNy+OLy
+<span class="ln">  77</span>       DO i=1-OLx+2,sNx+OLx-1
+<span class="ln">  78</span>        Rjp=(tracer(i+1,j)-tracer( i ,j))*maskLocW(i+1,j)
+<span class="ln">  79</span>        Rj =(tracer( i ,j)-tracer(i-1,j))*maskLocW( i ,j)
+<span class="ln">  80</span>        Rjm=(tracer(i-1,j)-tracer(i-2,j))*maskLocW(i-1,j)
+<span class="ln">  81</span>
+<span class="ln">  82</span>        uCFL = uFld(i,j)
+<span class="ln">  83</span>        IF ( calcCFL ) uCFL = ABS( uFld(i,j)*deltaTloc
+<span class="ln">  84</span>     &amp;                  *recip_dxC(i,j,bi,bj)*recip_deepFacC(k) )
+<span class="ln">  85</span>        d0=(2.-uCFL)*(1.-uCFL)*oneSixth
+<span class="ln">  86</span>        d1=(1.-uCFL*uCFL)*oneSixth
+<span class="ln">  87</span><span class="pp">#ifdef OLD_DST3_FORMULATION</span>
+<span class="ln">  88</span>        IF ( ABS(Rj).LT.smallNo .OR.
+<span class="ln">  89</span>     &amp;       ABS(Rjm).LT.smallNo ) THEN
+<span class="ln">  90</span>         thetaP=0.
+<span class="ln">  91</span>         psiP=0.
+<span class="ln">  92</span>        ELSE
+<span class="ln">  93</span>         thetaP=(Rjm+smallNo)/(smallNo+Rj)
+<span class="ln">  94</span>         psiP=d0+d1*thetaP
+<span class="ln">  95</span>        ENDIF
+<span class="ln">  96</span>        IF ( ABS(Rj).LT.smallNo .OR.
+<span class="ln">  97</span>     &amp;       ABS(Rjp).LT.smallNo ) THEN
+<span class="ln">  98</span>         thetaM=0.
+<span class="ln">  99</span>         psiM=0.
+<span class="ln"> 100</span>        ELSE
+<span class="ln"> 101</span>         thetaM=(Rjp+smallNo)/(smallNo+Rj)
+<span class="ln"> 102</span>         psiM=d0+d1*thetaM
+<span class="ln"> 103</span>        ENDIF
+<span class="ln"> 104</span>        uT(i,j)=
+<span class="ln"> 105</span>     &amp;   0.5*(uTrans(i,j)+ABS(uTrans(i,j)))
+<span class="ln"> 106</span>     &amp;      *( Tracer(i-1,j) + psiP*Rj )
+<span class="ln"> 107</span>     &amp;  +0.5*(uTrans(i,j)-ABS(uTrans(i,j)))
+<span class="ln"> 108</span>     &amp;      *( Tracer( i ,j) - psiM*Rj )
+<span class="ln"> 109</span><span class="pp">#else /* OLD_DST3_FORMULATION */</span>
+<span class="ln"> 110</span>        uT(i,j)=
+<span class="ln"> 111</span>     &amp;   0.5*(uTrans(i,j)+ABS(uTrans(i,j)))
+<span class="ln"> 112</span>     &amp;      *( Tracer(i-1,j) + (d0*Rj+d1*Rjm) )
+<span class="ln"> 113</span>     &amp;  +0.5*(uTrans(i,j)-ABS(uTrans(i,j)))
+<span class="ln"> 114</span>     &amp;      *( Tracer( i ,j) - (d0*Rj+d1*Rjp) )
+<span class="ln"> 115</span><span class="pp">#endif /* OLD_DST3_FORMULATION */</span>
+<span class="ln"> 116</span>
+<span class="ln"> 117</span>       ENDDO
+<span class="ln"> 118</span>      ENDDO
+<span class="ln"> 119</span>
+<span class="ln"> 120</span>      RETURN
+<span class="ln"> 121</span>      END</pre><pre><span class="ln"> 128</span>    j = loop_j(1-OLy, sNy+OLy)                                      <span class="cm"># :76-118</span>
+<span class="ln"> 129</span>    i = loop_i(1-OLx+2, sNx+OLx-1)
+<span class="ln"> 130</span>    Rjp = (tracer[i+1, j]-tracer[i, j])*maskLocW[i+1, j]
+<span class="ln"> 131</span>    Rj = (tracer[i, j]-tracer[i-1, j])*maskLocW[i, j]
+<span class="ln"> 132</span>    Rjm = (tracer[i-1, j]-tracer[i-2, j])*maskLocW[i-1, j]
+<span class="ln"> 133</span>
+<span class="ln"> 134</span>    uCFL = uFld[i, j]
+<span class="ln"> 135</span>    if calcCFL:
+<span class="ln"> 136</span>        uCFL = jnp.abs(uFld[i, j]*deltaTloc
+<span class="ln"> 137</span>                       *recip_dxC[i, j]*recip_deepFacC[k])
+<span class="ln"> 138</span>    d0 = (2.-uCFL)*(1.-uCFL)*oneSixth
+<span class="ln"> 139</span>    d1 = (1.-uCFL*uCFL)*oneSixth
+<span class="ln"> 140</span>    uT = uT.at[i, j].set(
+<span class="ln"> 141</span>          0.5*(uTrans[i, j]+jnp.abs(uTrans[i, j]))
+<span class="ln"> 142</span>             *(tracer[i-1, j] + (d0*Rj+d1*Rjm))
+<span class="ln"> 143</span>         +0.5*(uTrans[i, j]-jnp.abs(uTrans[i, j]))
+<span class="ln"> 144</span>             *(tracer[i, j] - (d0*Rj+d1*Rjp)))
+<span class="ln"> 145</span>    return uT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln"> 131</span>    j = F(1-OLy, sNy+OLy, OLy)                                      <span class="cm"># :76-118  DO j=1-OLy,sNy+OLy</span>
+<span class="ln"> 132</span>    i = F(1-OLx+2, sNx+OLx-1, OLx)                                  <span class="cm">#          DO i=1-OLx+2,sNx+OLx-1</span>
+<span class="ln"> 133</span>    im2, im1, ip1 = F(1-OLx, sNx+OLx-3, OLx), F(2-OLx, sNx+OLx-2, OLx), F(4-OLx, sNx+OLx, OLx)
+<span class="ln"> 134</span>    Rjp = (tracer[:, j, ip1]-tracer[:, j, i])*maskLocW[:, j, ip1]
+<span class="ln"> 135</span>    Rj = (tracer[:, j, i]-tracer[:, j, im1])*maskLocW[:, j, i]
+<span class="ln"> 136</span>    Rjm = (tracer[:, j, im1]-tracer[:, j, im2])*maskLocW[:, j, im1]
+<span class="ln"> 137</span>
+<span class="ln"> 138</span>    uCFL = uFld[:, j, i]
+<span class="ln"> 139</span>    if calcCFL:
+<span class="ln"> 140</span>        uCFL = jnp.abs(uFld[:, j, i]*deltaTloc
+<span class="ln"> 141</span>                       *recip_dxC[:, j, i]*recip_deepFacC[kk])
+<span class="ln"> 142</span>    d0 = (2.-uCFL)*(1.-uCFL)*oneSixth
+<span class="ln"> 143</span>    d1 = (1.-uCFL*uCFL)*oneSixth
+<span class="ln"> 144</span>    uT = uT.at[:, j, i].set(
+<span class="ln"> 145</span>          0.5*(uTrans[:, j, i]+jnp.abs(uTrans[:, j, i]))
+<span class="ln"> 146</span>             *(tracer[:, j, im1] + (d0*Rj+d1*Rjm))
+<span class="ln"> 147</span>         +0.5*(uTrans[:, j, i]-jnp.abs(uTrans[:, j, i]))
+<span class="ln"> 148</span>             *(tracer[:, j, i] - (d0*Rj+d1*Rjp)))
+<span class="ln"> 149</span>    return uT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+<h2>MOM_VI_HDISSIP <span class='muted'>(pkg/mom_vecinv/mom_vi_hdissip.F @63cdc0b)</span></h2><div class='sbs'><div class='hd'>Fortran mom_vi_hdissip.F</div><div class='hd'>Fortran-index style (style_farray.py)</div><div class='hd'>plain slices (style_slices.py)</div>
+<pre><span class="ln">   3</span>      SUBROUTINE MOM_VI_HDISSIP(
+<span class="ln">   4</span>     I        bi, bj, k,
+<span class="ln">   5</span>     I        hDiv, vort3, dStar, zStar, hFacZ,
+<span class="ln">   6</span>     I        viscAh_Z, viscAh_D, viscA4_Z, viscA4_D,
+<span class="ln">   7</span>     I        harmonic, biharmonic, useVariableViscosity,
+<span class="ln">   8</span>     O        uDissip, vDissip,
+<span class="ln">   9</span>     I        myThid )
+<span class="ln">  10</span>
+<span class="ln">  11</span>      IMPLICIT NONE
+<span class="ln">  12</span>
+<span class="ln">  13</span><span class="cm">C     Calculate horizontal dissipation terms</span>
+<span class="ln">  14</span><span class="cm">C     [del^2 - del^4] (u,v)</span>
+<span class="ln">  15</span>
+<span class="ln">  16</span><span class="cm">C     == Global variables ==</span>
+<span class="ln">  17</span><span class="pp">#include &quot;SIZE.h&quot;</span>
+<span class="ln">  18</span><span class="pp">#include &quot;EEPARAMS.h&quot;</span>
+<span class="ln">  19</span><span class="pp">#include &quot;PARAMS.h&quot;</span>
+<span class="ln">  20</span><span class="pp">#include &quot;GRID.h&quot;</span>
+<span class="ln">  21</span>
+<span class="ln">  22</span><span class="cm">C     == Routine arguments ==</span>
+<span class="ln">  23</span>      INTEGER bi, bj, k
+<span class="ln">  24</span>      _RL hDiv (1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  25</span>      _RL vort3(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  26</span>      _RL dStar(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  27</span>      _RL zStar(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  28</span>      _RS hFacZ(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  29</span>      _RL viscAh_Z(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  30</span>      _RL viscAh_D(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  31</span>      _RL viscA4_Z(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  32</span>      _RL viscA4_D(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  33</span>      LOGICAL harmonic, biharmonic, useVariableViscosity
+<span class="ln">  34</span>      _RL uDissip(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  35</span>      _RL vDissip(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  36</span>      INTEGER myThid
+<span class="ln">  37</span>
+<span class="ln">  38</span><span class="cm">C     == Local variables ==</span>
+<span class="ln">  39</span>      INTEGER i, j
+<span class="ln">  40</span>      _RL Zip, Zij, Zpj, Dim, Dij, Dmj, uD2, vD2
+<span class="ln">  41</span>      _RL uD4(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  42</span>      _RL vD4(1-OLx:sNx+OLx,1-OLy:sNy+OLy)
+<span class="ln">  43</span>
+<span class="ln">  44</span><span class="cm">C     - Laplacian  terms</span></pre><pre><span class="ln"> 148</span>def mom_vi_hdissip(k, hDiv, vort3, dStar, zStar, hFacZ, viscAh_Z, viscAh_D, viscA4_Z, viscA4_D,
+<span class="ln"> 149</span>                   harmonic, biharmonic, useVariableViscosity, uDissip, vDissip, *, cfg, grid, params):
+<span class="ln"> 150</span>    &quot;&quot;&quot;MOM_VI_HDISSIP(bi, bj, k, hDiv, vort3, dStar, zStar, hFacZ, viscAh_Z, viscAh_D, viscA4_Z, viscA4_D,
+<span class="ln"> 151</span>                      harmonic, biharmonic, useVariableViscosity, uDissip, vDissip, myThid)
+<span class="ln"> 152</span>    @63cdc0b pkg/mom_vecinv/mom_vi_hdissip.F:3-238
+<span class="ln"> 153</span>
+<span class="ln"> 154</span>    C     Calculate horizontal dissipation terms
+<span class="ln"> 155</span>    C     [del^2 - del^4] (u,v)
+<span class="ln"> 156</span>
+<span class="ln"> 157</span>    Returns (uDissip, vDissip). The point loops (:50-72, :74-96, :127-176, :178-219, :221-228) run on the whole
+<span class="ln"> 158</span>    (i,j) range at once; each point reads only inputs or its own earlier values, so the result is the same.
+<span class="ln"> 159</span>    <span class="cm">#ifdef MOM_VI_ORIGINAL_VISCA4 (:130-137, :154-162, :181-188, :199-207) is not ported: not defined in the</span>
+<span class="ln"> 160</span>    experiment&#x27;s options. The DIAGNOSTICS_FILL calls (:98-103, :229-234) only copy into pkg/diagnostics buffers
+<span class="ln"> 161</span>    (not ported): with useDiagnostics = .TRUE. this is a hard error.
+<span class="ln"> 162</span>    &quot;&quot;&quot;
+<span class="ln"> 163</span>    if cfg.MOM_VI_ORIGINAL_VISCA4:
+<span class="ln"> 164</span>        raise NotImplementedError(&quot;MOM_VI_HDISSIP: MOM_VI_ORIGINAL_VISCA4 is not ported&quot;)
+<span class="ln"> 165</span>    sNx, sNy, OLx, OLy = cfg.sNx, cfg.sNy, cfg.OLx, cfg.OLy
+<span class="ln"> 166</span>    cosFacU, cosFacV = grid.cosFacU, grid.cosFacV
+<span class="ln"> 167</span>    recip_dxC, recip_dyC, recip_dxG, recip_dyG = grid.recip_dxC, grid.recip_dyC, grid.recip_dxG, grid.recip_dyG
+<span class="ln"> 168</span>    recip_hFacW, recip_hFacS = grid.recip_hFacW, grid.recip_hFacS
+<span class="ln"> 169</span>    maskW, maskS, recip_deepFacC = grid.maskW, grid.maskS, grid.recip_deepFacC
+<span class="ln"> 170</span>    viscAhD, viscAhZ, viscA4D, viscA4Z = params.viscAhD, params.viscAhZ, params.viscA4D, params.viscA4Z
+<span class="ln"> 171</span>
+<span class="ln"> 172</span><span class="cm">#     - Laplacian  terms</span>
+<span class="ln"> 173</span>    j = loop_j(2-OLy, sNy+OLy-1)
+<span class="ln"> 174</span>    i = loop_i(2-OLx, sNx+OLx-1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln"> 152</span>def mom_vi_hdissip(k, hDiv, vort3, dStar, zStar, hFacZ, viscAh_Z, viscAh_D, viscA4_Z, viscA4_D,
+<span class="ln"> 153</span>                   harmonic, biharmonic, useVariableViscosity, uDissip, vDissip, *, cfg, grid, params):
+<span class="ln"> 154</span>    &quot;&quot;&quot;MOM_VI_HDISSIP(bi, bj, k, hDiv, vort3, dStar, zStar, hFacZ, viscAh_Z, viscAh_D, viscA4_Z, viscA4_D,
+<span class="ln"> 155</span>                      harmonic, biharmonic, useVariableViscosity, uDissip, vDissip, myThid)
+<span class="ln"> 156</span>    @63cdc0b pkg/mom_vecinv/mom_vi_hdissip.F:3-238
+<span class="ln"> 157</span>
+<span class="ln"> 158</span>    C     Calculate horizontal dissipation terms
+<span class="ln"> 159</span>    C     [del^2 - del^4] (u,v)
+<span class="ln"> 160</span>
+<span class="ln"> 161</span>    Returns (uDissip, vDissip). The point loops (:50-72, :74-96, :127-176, :178-219, :221-228) run on the whole
+<span class="ln"> 162</span>    (i,j) range at once; each point reads only inputs or its own earlier values, so the result is the same.
+<span class="ln"> 163</span>    <span class="cm">#ifdef MOM_VI_ORIGINAL_VISCA4 (:130-137, :154-162, :181-188, :199-207) is not ported: not defined in the</span>
+<span class="ln"> 164</span>    experiment&#x27;s options. The DIAGNOSTICS_FILL calls (:98-103, :229-234) only copy into pkg/diagnostics buffers
+<span class="ln"> 165</span>    (not ported): with useDiagnostics = .TRUE. this is a hard error.
+<span class="ln"> 166</span>    &quot;&quot;&quot;
+<span class="ln"> 167</span>    if cfg.MOM_VI_ORIGINAL_VISCA4:
+<span class="ln"> 168</span>        raise NotImplementedError(&quot;MOM_VI_HDISSIP: MOM_VI_ORIGINAL_VISCA4 is not ported&quot;)
+<span class="ln"> 169</span>    sNx, sNy, OLx, OLy = cfg.sNx, cfg.sNy, cfg.OLx, cfg.OLy
+<span class="ln"> 170</span>    cosFacU, cosFacV = grid.cosFacU, grid.cosFacV
+<span class="ln"> 171</span>    recip_dxC, recip_dyC, recip_dxG, recip_dyG = grid.recip_dxC, grid.recip_dyC, grid.recip_dxG, grid.recip_dyG
+<span class="ln"> 172</span>    recip_hFacW, recip_hFacS = grid.recip_hFacW, grid.recip_hFacS
+<span class="ln"> 173</span>    maskW, maskS, recip_deepFacC = grid.maskW, grid.maskS, grid.recip_deepFacC
+<span class="ln"> 174</span>    viscAhD, viscAhZ, viscA4D, viscA4Z = params.viscAhD, params.viscAhZ, params.viscA4D, params.viscA4Z
+<span class="ln"> 175</span>    kk = k - 1
+<span class="ln"> 176</span>
+<span class="ln"> 177</span><span class="cm">#     - Laplacian  terms</span>
+<span class="ln"> 178</span>    j, jm1, jp1 = F(2-OLy, sNy+OLy-1, OLy), F(1-OLy, sNy+OLy-2, OLy), F(3-OLy, sNy+OLy, OLy)
+<span class="ln"> 179</span>    i, im1, ip1 = F(2-OLx, sNx+OLx-1, OLx), F(1-OLx, sNx+OLx-2, OLx), F(3-OLx, sNx+OLx, OLx)
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+<pre><span class="ln">  45</span>      IF ( harmonic ) THEN
+<span class="ln">  46</span><span class="cm">C This bit scales the harmonic dissipation operator to be proportional</span>
+<span class="ln">  47</span><span class="cm">C to the grid-cell area over the time-step. viscAh is then non-dimensional</span>
+<span class="ln">  48</span><span class="cm">C and should be less than 1/8, for example viscAh=0.01</span></pre><pre><span class="ln"> 175</span>    if harmonic:                                                    <span class="cm"># :45</span>
+
+
+</pre><pre><span class="ln"> 180</span>    if harmonic:                                                    <span class="cm"># :45</span>
+
+
+</pre>
+<pre><span class="ln">  49</span>       IF ( useVariableViscosity ) THEN
+<span class="ln">  50</span>        DO j=2-OLy,sNy+OLy-1
+<span class="ln">  51</span>         DO i=2-OLx,sNx+OLx-1
+<span class="ln">  52</span>
+<span class="ln">  53</span>          Dij=hDiv( i , j )*viscAh_D(i,j)
+<span class="ln">  54</span>          Dim=hDiv( i ,j-1)*viscAh_D(i,j-1)
+<span class="ln">  55</span>          Dmj=hDiv(i-1, j )*viscAh_D(i-1,j)
+<span class="ln">  56</span>          Zij=hFacZ( i , j )*vort3( i , j )*viscAh_Z(i,j)
+<span class="ln">  57</span>          Zip=hFacZ( i ,j+1)*vort3( i ,j+1)*viscAh_Z(i,j+1)
+<span class="ln">  58</span>          Zpj=hFacZ(i+1, j )*vort3(i+1, j )*viscAh_Z(i+1,j)
+<span class="ln">  59</span>
+<span class="ln">  60</span>          uD2 = (
+<span class="ln">  61</span>     &amp;               cosFacU(j,bi,bj)*( Dij-Dmj )*recip_DXC(i,j,bi,bj)
+<span class="ln">  62</span>     &amp;     -_recip_hFacW(i,j,k,bi,bj)*( Zip-Zij )*recip_DYG(i,j,bi,bj) )
+<span class="ln">  63</span>          vD2 = (
+<span class="ln">  64</span>     &amp;      _recip_hFacS(i,j,k,bi,bj)*( Zpj-Zij )*recip_DXG(i,j,bi,bj)
+<span class="ln">  65</span>     &amp;                                           *cosFacV(j,bi,bj)
+<span class="ln">  66</span>     &amp;                               +( Dij-Dim )*recip_DYC(i,j,bi,bj) )
+<span class="ln">  67</span>
+<span class="ln">  68</span>          uDissip(i,j) = uD2*maskW(i,j,k,bi,bj)*recip_deepFacC(k)
+<span class="ln">  69</span>          vDissip(i,j) = vD2*maskS(i,j,k,bi,bj)*recip_deepFacC(k)
+<span class="ln">  70</span>
+<span class="ln">  71</span>         ENDDO
+<span class="ln">  72</span>        ENDDO</pre><pre><span class="ln"> 176</span>        if useVariableViscosity:                                    <span class="cm"># :49-72</span>
+<span class="ln"> 177</span>            Dij = hDiv[i, j]*viscAh_D[i, j]
+<span class="ln"> 178</span>            Dim = hDiv[i, j-1]*viscAh_D[i, j-1]
+<span class="ln"> 179</span>            Dmj = hDiv[i-1, j]*viscAh_D[i-1, j]
+<span class="ln"> 180</span>            Zij = hFacZ[i, j]*vort3[i, j]*viscAh_Z[i, j]
+<span class="ln"> 181</span>            Zip = hFacZ[i, j+1]*vort3[i, j+1]*viscAh_Z[i, j+1]
+<span class="ln"> 182</span>            Zpj = hFacZ[i+1, j]*vort3[i+1, j]*viscAh_Z[i+1, j]
+<span class="ln"> 183</span>
+<span class="ln"> 184</span>            uD2 = (
+<span class="ln"> 185</span>                       cosFacU[j]*(Dij-Dmj)*recip_dxC[i, j]
+<span class="ln"> 186</span>             -recip_hFacW[i, j, k]*(Zip-Zij)*recip_dyG[i, j])
+<span class="ln"> 187</span>            vD2 = (
+<span class="ln"> 188</span>              recip_hFacS[i, j, k]*(Zpj-Zij)*recip_dxG[i, j]
+<span class="ln"> 189</span>                                                   *cosFacV[j]
+<span class="ln"> 190</span>                                       +(Dij-Dim)*recip_dyC[i, j])
+<span class="ln"> 191</span>
+<span class="ln"> 192</span>            uDissip = uDissip.at[i, j].set(uD2*maskW[i, j, k]*recip_deepFacC[k])
+<span class="ln"> 193</span>            vDissip = vDissip.at[i, j].set(vD2*maskS[i, j, k]*recip_deepFacC[k])
+
+
+
+
+
+</pre><pre><span class="ln"> 181</span>        if useVariableViscosity:                                    <span class="cm"># :49-72</span>
+<span class="ln"> 182</span>            Dij = hDiv[:, j, i]*viscAh_D[:, j, i]
+<span class="ln"> 183</span>            Dim = hDiv[:, jm1, i]*viscAh_D[:, jm1, i]
+<span class="ln"> 184</span>            Dmj = hDiv[:, j, im1]*viscAh_D[:, j, im1]
+<span class="ln"> 185</span>            Zij = hFacZ[:, j, i]*vort3[:, j, i]*viscAh_Z[:, j, i]
+<span class="ln"> 186</span>            Zip = hFacZ[:, jp1, i]*vort3[:, jp1, i]*viscAh_Z[:, jp1, i]
+<span class="ln"> 187</span>            Zpj = hFacZ[:, j, ip1]*vort3[:, j, ip1]*viscAh_Z[:, j, ip1]
+<span class="ln"> 188</span>
+<span class="ln"> 189</span>            uD2 = (
+<span class="ln"> 190</span>                       cosFacU[:, j, None]*(Dij-Dmj)*recip_dxC[:, j, i]
+<span class="ln"> 191</span>             -recip_hFacW[:, kk, j, i]*(Zip-Zij)*recip_dyG[:, j, i])
+<span class="ln"> 192</span>            vD2 = (
+<span class="ln"> 193</span>              recip_hFacS[:, kk, j, i]*(Zpj-Zij)*recip_dxG[:, j, i]
+<span class="ln"> 194</span>                                                   *cosFacV[:, j, None]
+<span class="ln"> 195</span>                                       +(Dij-Dim)*recip_dyC[:, j, i])
+<span class="ln"> 196</span>
+<span class="ln"> 197</span>            uDissip = uDissip.at[:, j, i].set(uD2*maskW[:, kk, j, i]*recip_deepFacC[kk])
+<span class="ln"> 198</span>            vDissip = vDissip.at[:, j, i].set(vD2*maskS[:, kk, j, i]*recip_deepFacC[kk])
+
+
+
+
+
+</pre>
+<pre><span class="ln">  73</span>       ELSE
+<span class="ln">  74</span>        DO j=2-OLy,sNy+OLy-1
+<span class="ln">  75</span>         DO i=2-OLx,sNx+OLx-1
+<span class="ln">  76</span>
+<span class="ln">  77</span>          Dim=hDiv( i ,j-1)
+<span class="ln">  78</span>          Dij=hDiv( i , j )
+<span class="ln">  79</span>          Dmj=hDiv(i-1, j )
+<span class="ln">  80</span>          Zip=hFacZ( i ,j+1)*vort3( i ,j+1)
+<span class="ln">  81</span>          Zij=hFacZ( i , j )*vort3( i , j )
+<span class="ln">  82</span>          Zpj=hFacZ(i+1, j )*vort3(i+1, j )
+<span class="ln">  83</span>
+<span class="ln">  84</span>          uD2 = viscAhD*
+<span class="ln">  85</span>     &amp;               cosFacU(j,bi,bj)*( Dij-Dmj )*recip_DXC(i,j,bi,bj)
+<span class="ln">  86</span>     &amp;        - viscAhZ*_recip_hFacW(i,j,k,bi,bj)*
+<span class="ln">  87</span>     &amp;                                ( Zip-Zij )*recip_DYG(i,j,bi,bj)
+<span class="ln">  88</span>          vD2 = viscAhZ*_recip_hFacS(i,j,k,bi,bj)*
+<span class="ln">  89</span>     &amp;               cosFacV(j,bi,bj)*( Zpj-Zij )*recip_DXG(i,j,bi,bj)
+<span class="ln">  90</span>     &amp;        + viscAhD*              ( Dij-Dim )*recip_DYC(i,j,bi,bj)
+<span class="ln">  91</span>
+<span class="ln">  92</span>          uDissip(i,j) = uD2*maskW(i,j,k,bi,bj)*recip_deepFacC(k)
+<span class="ln">  93</span>          vDissip(i,j) = vD2*maskS(i,j,k,bi,bj)*recip_deepFacC(k)
+<span class="ln">  94</span>
+<span class="ln">  95</span>         ENDDO
+<span class="ln">  96</span>        ENDDO
+<span class="ln">  97</span>       ENDIF</pre><pre><span class="ln"> 194</span>        else:                                                       <span class="cm"># :73-96</span>
+<span class="ln"> 195</span>            Dim = hDiv[i, j-1]
+<span class="ln"> 196</span>            Dij = hDiv[i, j]
+<span class="ln"> 197</span>            Dmj = hDiv[i-1, j]
+<span class="ln"> 198</span>            Zip = hFacZ[i, j+1]*vort3[i, j+1]
+<span class="ln"> 199</span>            Zij = hFacZ[i, j]*vort3[i, j]
+<span class="ln"> 200</span>            Zpj = hFacZ[i+1, j]*vort3[i+1, j]
+<span class="ln"> 201</span>
+<span class="ln"> 202</span>            uD2 = (viscAhD*
+<span class="ln"> 203</span>                       cosFacU[j]*(Dij-Dmj)*recip_dxC[i, j]
+<span class="ln"> 204</span>                - viscAhZ*recip_hFacW[i, j, k]*
+<span class="ln"> 205</span>                                        (Zip-Zij)*recip_dyG[i, j])
+<span class="ln"> 206</span>            vD2 = (viscAhZ*recip_hFacS[i, j, k]*
+<span class="ln"> 207</span>                       cosFacV[j]*(Zpj-Zij)*recip_dxG[i, j]
+<span class="ln"> 208</span>                + viscAhD*              (Dij-Dim)*recip_dyC[i, j])
+<span class="ln"> 209</span>
+<span class="ln"> 210</span>            uDissip = uDissip.at[i, j].set(uD2*maskW[i, j, k]*recip_deepFacC[k])
+<span class="ln"> 211</span>            vDissip = vDissip.at[i, j].set(vD2*maskS[i, j, k]*recip_deepFacC[k])
+
+
+
+
+
+
+</pre><pre><span class="ln"> 199</span>        else:                                                       <span class="cm"># :73-96</span>
+<span class="ln"> 200</span>            Dim = hDiv[:, jm1, i]
+<span class="ln"> 201</span>            Dij = hDiv[:, j, i]
+<span class="ln"> 202</span>            Dmj = hDiv[:, j, im1]
+<span class="ln"> 203</span>            Zip = hFacZ[:, jp1, i]*vort3[:, jp1, i]
+<span class="ln"> 204</span>            Zij = hFacZ[:, j, i]*vort3[:, j, i]
+<span class="ln"> 205</span>            Zpj = hFacZ[:, j, ip1]*vort3[:, j, ip1]
+<span class="ln"> 206</span>
+<span class="ln"> 207</span>            uD2 = (viscAhD*
+<span class="ln"> 208</span>                       cosFacU[:, j, None]*(Dij-Dmj)*recip_dxC[:, j, i]
+<span class="ln"> 209</span>                - viscAhZ*recip_hFacW[:, kk, j, i]*
+<span class="ln"> 210</span>                                        (Zip-Zij)*recip_dyG[:, j, i])
+<span class="ln"> 211</span>            vD2 = (viscAhZ*recip_hFacS[:, kk, j, i]*
+<span class="ln"> 212</span>                       cosFacV[:, j, None]*(Zpj-Zij)*recip_dxG[:, j, i]
+<span class="ln"> 213</span>                + viscAhD*              (Dij-Dim)*recip_dyC[:, j, i])
+<span class="ln"> 214</span>
+<span class="ln"> 215</span>            uDissip = uDissip.at[:, j, i].set(uD2*maskW[:, kk, j, i]*recip_deepFacC[kk])
+<span class="ln"> 216</span>            vDissip = vDissip.at[:, j, i].set(vD2*maskS[:, kk, j, i]*recip_deepFacC[kk])
+
+
+
+
+
+
+</pre>
+<pre><span class="ln">  98</span><span class="pp">#ifdef ALLOW_DIAGNOSTICS</span>
+<span class="ln">  99</span>       IF ( useDiagnostics ) THEN
+<span class="ln"> 100</span>        CALL DIAGNOSTICS_FILL( uDissip,&#x27;Um_hDis2&#x27;, k,1,2,bi,bj, myThid )
+<span class="ln"> 101</span>        CALL DIAGNOSTICS_FILL( vDissip,&#x27;Vm_hDis2&#x27;, k,1,2,bi,bj, myThid )
+<span class="ln"> 102</span>       ENDIF
+<span class="ln"> 103</span><span class="pp">#endif /* ALLOW_DIAGNOSTICS */</span></pre><pre><span class="ln"> 212</span>        if cfg.ALLOW_DIAGNOSTICS and cfg.useDiagnostics:            <span class="cm"># :98-103</span>
+<span class="ln"> 213</span>            raise NotImplementedError(&quot;MOM_VI_HDISSIP: DIAGNOSTICS_FILL (pkg/diagnostics is not ported)&quot;)
+
+
+
+</pre><pre><span class="ln"> 217</span>        if cfg.ALLOW_DIAGNOSTICS and cfg.useDiagnostics:            <span class="cm"># :98-103</span>
+<span class="ln"> 218</span>            raise NotImplementedError(&quot;MOM_VI_HDISSIP: DIAGNOSTICS_FILL (pkg/diagnostics is not ported)&quot;)
+
+
+
+</pre>
+<pre><span class="ln"> 104</span>      ELSE
+<span class="ln"> 105</span>       DO j=2-OLy,sNy+OLy-1
+<span class="ln"> 106</span>        DO i=2-OLx,sNx+OLx-1
+<span class="ln"> 107</span>         uDissip(i,j) = 0.
+<span class="ln"> 108</span>         vDissip(i,j) = 0.
+<span class="ln"> 109</span>        ENDDO
+<span class="ln"> 110</span>       ENDDO
+<span class="ln"> 111</span>      ENDIF
+<span class="ln"> 112</span>
+<span class="ln"> 113</span><span class="cm">C     - Bi-harmonic terms</span></pre><pre><span class="ln"> 214</span>    else:                                                           <span class="cm"># :104-111</span>
+<span class="ln"> 215</span>        uDissip = uDissip.at[i, j].set(0.)
+<span class="ln"> 216</span>        vDissip = vDissip.at[i, j].set(0.)
+<span class="ln"> 217</span>
+<span class="ln"> 218</span><span class="cm">#     - Bi-harmonic terms</span>
+
+
+
+
+</pre><pre><span class="ln"> 219</span>    else:                                                           <span class="cm"># :104-111</span>
+<span class="ln"> 220</span>        uDissip = uDissip.at[:, j, i].set(0.)
+<span class="ln"> 221</span>        vDissip = vDissip.at[:, j, i].set(0.)
+<span class="ln"> 222</span>
+<span class="ln"> 223</span><span class="cm">#     - Bi-harmonic terms</span>
+
+
+
+
+</pre>
+<pre><span class="ln"> 114</span>      IF ( biharmonic ) THEN
+<span class="ln"> 115</span><span class="cm">C--   initialize local arrays</span>
+
+</pre><pre><span class="ln"> 219</span>    if biharmonic:                                                  <span class="cm"># :114</span>
+<span class="ln"> 220</span><span class="cm">#--   initialize local arrays</span>
+<span class="ln"> 221</span>        uD4 = uDissip.local(&quot;uD4&quot;)                                  <span class="cm"># :41-42  _RL uD4(1-OLx:sNx+OLx,1-OLy:sNy+OLy)</span>
+<span class="ln"> 222</span>        vD4 = vDissip.local(&quot;vD4&quot;)</pre><pre><span class="ln"> 224</span>    if biharmonic:                                                  <span class="cm"># :114</span>
+<span class="ln"> 225</span><span class="cm">#--   initialize local arrays</span>
+<span class="ln"> 226</span>        uD4 = jnp.full_like(uDissip, jnp.nan)                       <span class="cm"># :41-42  _RL uD4(1-OLx:sNx+OLx,1-OLy:sNy+OLy)</span>
+<span class="ln"> 227</span>        vD4 = jnp.full_like(vDissip, jnp.nan)</pre>
+<pre><span class="ln"> 116</span>       DO j=1-OLy,sNy+OLy
+<span class="ln"> 117</span>        DO i=1-OLx,sNx+OLx
+<span class="ln"> 118</span>         uD4(i,j) = 0. _d 0
+<span class="ln"> 119</span>         vD4(i,j) = 0. _d 0
+<span class="ln"> 120</span>        ENDDO
+<span class="ln"> 121</span>       ENDDO
+<span class="ln"> 122</span>
+<span class="ln"> 123</span><span class="cm">C This bit scales the harmonic dissipation operator to be proportional</span>
+<span class="ln"> 124</span><span class="cm">C to the grid-cell area over the time-step. viscAh is then non-dimensional</span>
+<span class="ln"> 125</span><span class="cm">C and should be less than 1/8, for example viscAh=0.01</span></pre><pre><span class="ln"> 223</span>        jA = loop_j(1-OLy, sNy+OLy)                                 <span class="cm"># :116-121</span>
+<span class="ln"> 224</span>        iA = loop_i(1-OLx, sNx+OLx)
+<span class="ln"> 225</span>        uD4 = uD4.at[iA, jA].set(0.)
+<span class="ln"> 226</span>        vD4 = vD4.at[iA, jA].set(0.)
+<span class="ln"> 227</span>
+
+
+
+
+</pre><pre><span class="ln"> 228</span>        jA, iA = F(1-OLy, sNy+OLy, OLy), F(1-OLx, sNx+OLx, OLx)     <span class="cm"># :116-121</span>
+<span class="ln"> 229</span>        uD4 = uD4.at[:, jA, iA].set(0.)
+<span class="ln"> 230</span>        vD4 = vD4.at[:, jA, iA].set(0.)
+<span class="ln"> 231</span>
+
+
+
+
+
+</pre>
+<pre><span class="ln"> 126</span>       IF ( useVariableViscosity ) THEN
+<span class="ln"> 127</span>        DO j=2-OLy,sNy+OLy-1
+<span class="ln"> 128</span>         DO i=2-OLx,sNx+OLx-1
+<span class="ln"> 129</span>
+<span class="ln"> 130</span><span class="pp">#ifdef MOM_VI_ORIGINAL_VISCA4</span>
+<span class="ln"> 131</span>          Dim=dyF( i ,j-1,bi,bj)*dStar( i ,j-1)
+<span class="ln"> 132</span>          Dij=dyF( i , j ,bi,bj)*dStar( i , j )
+<span class="ln"> 133</span>          Dmj=dyF(i-1, j ,bi,bj)*dStar(i-1, j )
+<span class="ln"> 134</span>
+<span class="ln"> 135</span>          Zip=dxV( i ,j+1,bi,bj)*hFacZ( i ,j+1)*zStar( i ,j+1)
+<span class="ln"> 136</span>          Zij=dxV( i , j ,bi,bj)*hFacZ( i , j )*zStar( i , j )
+<span class="ln"> 137</span>          Zpj=dxV(i+1, j ,bi,bj)*hFacZ(i+1, j )*zStar(i+1, j )
+<span class="ln"> 138</span><span class="pp">#else</span>
+<span class="ln"> 139</span>          Dim=dStar( i ,j-1)
+<span class="ln"> 140</span>          Dij=dStar( i , j )
+<span class="ln"> 141</span>          Dmj=dStar(i-1, j )
+<span class="ln"> 142</span>
+<span class="ln"> 143</span>          Zip=hFacZ( i ,j+1)*zStar( i ,j+1)
+<span class="ln"> 144</span>          Zij=hFacZ( i , j )*zStar( i , j )
+<span class="ln"> 145</span>          Zpj=hFacZ(i+1, j )*zStar(i+1, j )
+<span class="ln"> 146</span><span class="pp">#endif</span>
+<span class="ln"> 147</span>          Dij=Dij*viscA4_D(i,j)
+<span class="ln"> 148</span>          Dim=Dim*viscA4_D(i,j-1)
+<span class="ln"> 149</span>          Dmj=Dmj*viscA4_D(i-1,j)
+<span class="ln"> 150</span>          Zij=Zij*viscA4_Z(i,j)
+<span class="ln"> 151</span>          Zip=Zip*viscA4_Z(i,j+1)
+<span class="ln"> 152</span>          Zpj=Zpj*viscA4_Z(i+1,j)
+<span class="ln"> 153</span>
+<span class="ln"> 154</span><span class="pp">#ifdef MOM_VI_ORIGINAL_VISCA4</span>
+<span class="ln"> 155</span>          uD4(i,j) = recip_rAw(i,j,bi,bj)*(
+<span class="ln"> 156</span>     &amp;                             ( (Dij-Dmj)*cosFacU(j,bi,bj) )
+<span class="ln"> 157</span>     &amp;  -_recip_hFacW(i,j,k,bi,bj)*( Zip-Zij )
+<span class="ln"> 158</span>     &amp;                                    )
+<span class="ln"> 159</span>          vD4(i,j) = recip_rAs(i,j,bi,bj)*(
+<span class="ln"> 160</span>     &amp;   _recip_hFacS(i,j,k,bi,bj)*( (Zpj-Zij)*cosFacV(j,bi,bj) )
+<span class="ln"> 161</span>     &amp;   +                         ( Dij-Dim )
+<span class="ln"> 162</span>     &amp;                                    )
+<span class="ln"> 163</span><span class="pp">#else /* MOM_VI_ORIGINAL_VISCA4 */</span>
+<span class="ln"> 164</span>          uD4(i,j) = (
+<span class="ln"> 165</span>     &amp;               cosFacU(j,bi,bj)*( Dij-Dmj )*recip_DXC(i,j,bi,bj)
+<span class="ln"> 166</span>     &amp;     -_recip_hFacW(i,j,k,bi,bj)*( Zip-Zij )*recip_DYG(i,j,bi,bj)
+<span class="ln"> 167</span>     &amp;               )
+<span class="ln"> 168</span>          vD4(i,j) = (
+<span class="ln"> 169</span>     &amp;      _recip_hFacS(i,j,k,bi,bj)*( Zpj-Zij )*recip_DXG(i,j,bi,bj)
+<span class="ln"> 170</span>     &amp;                                           *cosFacV(j,bi,bj)
+<span class="ln"> 171</span>     &amp;                               +( Dij-Dim )*recip_DYC(i,j,bi,bj)
+<span class="ln"> 172</span>     &amp;               )
+<span class="ln"> 173</span><span class="pp">#endif  /* MOM_VI_ORIGINAL_VISCA4 */</span>
+<span class="ln"> 174</span>
+<span class="ln"> 175</span>         ENDDO
+<span class="ln"> 176</span>        ENDDO</pre><pre><span class="ln"> 228</span>        if useVariableViscosity:                                    <span class="cm"># :126-176</span>
+<span class="ln"> 229</span>            Dim = dStar[i, j-1]
+<span class="ln"> 230</span>            Dij = dStar[i, j]
+<span class="ln"> 231</span>            Dmj = dStar[i-1, j]
+<span class="ln"> 232</span>
+<span class="ln"> 233</span>            Zip = hFacZ[i, j+1]*zStar[i, j+1]
+<span class="ln"> 234</span>            Zij = hFacZ[i, j]*zStar[i, j]
+<span class="ln"> 235</span>            Zpj = hFacZ[i+1, j]*zStar[i+1, j]
+<span class="ln"> 236</span>
+<span class="ln"> 237</span>            Dij = Dij*viscA4_D[i, j]
+<span class="ln"> 238</span>            Dim = Dim*viscA4_D[i, j-1]
+<span class="ln"> 239</span>            Dmj = Dmj*viscA4_D[i-1, j]
+<span class="ln"> 240</span>            Zij = Zij*viscA4_Z[i, j]
+<span class="ln"> 241</span>            Zip = Zip*viscA4_Z[i, j+1]
+<span class="ln"> 242</span>            Zpj = Zpj*viscA4_Z[i+1, j]
+<span class="ln"> 243</span>
+<span class="ln"> 244</span>            uD4 = uD4.at[i, j].set(
+<span class="ln"> 245</span>                       cosFacU[j]*(Dij-Dmj)*recip_dxC[i, j]
+<span class="ln"> 246</span>             -recip_hFacW[i, j, k]*(Zip-Zij)*recip_dyG[i, j]
+<span class="ln"> 247</span>                       )
+<span class="ln"> 248</span>            vD4 = vD4.at[i, j].set(
+<span class="ln"> 249</span>              recip_hFacS[i, j, k]*(Zpj-Zij)*recip_dxG[i, j]
+<span class="ln"> 250</span>                                                   *cosFacV[j]
+<span class="ln"> 251</span>                                       +(Dij-Dim)*recip_dyC[i, j]
+<span class="ln"> 252</span>                       )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln"> 232</span>        if useVariableViscosity:                                    <span class="cm"># :126-176</span>
+<span class="ln"> 233</span>            Dim = dStar[:, jm1, i]
+<span class="ln"> 234</span>            Dij = dStar[:, j, i]
+<span class="ln"> 235</span>            Dmj = dStar[:, j, im1]
+<span class="ln"> 236</span>
+<span class="ln"> 237</span>            Zip = hFacZ[:, jp1, i]*zStar[:, jp1, i]
+<span class="ln"> 238</span>            Zij = hFacZ[:, j, i]*zStar[:, j, i]
+<span class="ln"> 239</span>            Zpj = hFacZ[:, j, ip1]*zStar[:, j, ip1]
+<span class="ln"> 240</span>
+<span class="ln"> 241</span>            Dij = Dij*viscA4_D[:, j, i]
+<span class="ln"> 242</span>            Dim = Dim*viscA4_D[:, jm1, i]
+<span class="ln"> 243</span>            Dmj = Dmj*viscA4_D[:, j, im1]
+<span class="ln"> 244</span>            Zij = Zij*viscA4_Z[:, j, i]
+<span class="ln"> 245</span>            Zip = Zip*viscA4_Z[:, jp1, i]
+<span class="ln"> 246</span>            Zpj = Zpj*viscA4_Z[:, j, ip1]
+<span class="ln"> 247</span>
+<span class="ln"> 248</span>            uD4 = uD4.at[:, j, i].set(
+<span class="ln"> 249</span>                       cosFacU[:, j, None]*(Dij-Dmj)*recip_dxC[:, j, i]
+<span class="ln"> 250</span>             -recip_hFacW[:, kk, j, i]*(Zip-Zij)*recip_dyG[:, j, i]
+<span class="ln"> 251</span>                       )
+<span class="ln"> 252</span>            vD4 = vD4.at[:, j, i].set(
+<span class="ln"> 253</span>              recip_hFacS[:, kk, j, i]*(Zpj-Zij)*recip_dxG[:, j, i]
+<span class="ln"> 254</span>                                                   *cosFacV[:, j, None]
+<span class="ln"> 255</span>                                       +(Dij-Dim)*recip_dyC[:, j, i]
+<span class="ln"> 256</span>                       )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+<pre><span class="ln"> 177</span>       ELSE
+<span class="ln"> 178</span>        DO j=2-OLy,sNy+OLy-1
+<span class="ln"> 179</span>         DO i=2-OLx,sNx+OLx-1
+<span class="ln"> 180</span>
+<span class="ln"> 181</span><span class="pp">#ifdef MOM_VI_ORIGINAL_VISCA4</span>
+<span class="ln"> 182</span>          Dim=dyF( i ,j-1,bi,bj)*dStar( i ,j-1)
+<span class="ln"> 183</span>          Dij=dyF( i , j ,bi,bj)*dStar( i , j )
+<span class="ln"> 184</span>          Dmj=dyF(i-1, j ,bi,bj)*dStar(i-1, j )
+<span class="ln"> 185</span>
+<span class="ln"> 186</span>          Zip=dxV( i ,j+1,bi,bj)*hFacZ( i ,j+1)*zStar( i ,j+1)
+<span class="ln"> 187</span>          Zij=dxV( i , j ,bi,bj)*hFacZ( i , j )*zStar( i , j )
+<span class="ln"> 188</span>          Zpj=dxV(i+1, j ,bi,bj)*hFacZ(i+1, j )*zStar(i+1, j )
+<span class="ln"> 189</span><span class="pp">#else</span>
+<span class="ln"> 190</span>          Dim=dStar( i ,j-1)
+<span class="ln"> 191</span>          Dij=dStar( i , j )
+<span class="ln"> 192</span>          Dmj=dStar(i-1, j )
+<span class="ln"> 193</span>
+<span class="ln"> 194</span>          Zip=hFacZ( i ,j+1)*zStar( i ,j+1)
+<span class="ln"> 195</span>          Zij=hFacZ( i , j )*zStar( i , j )
+<span class="ln"> 196</span>          Zpj=hFacZ(i+1, j )*zStar(i+1, j )
+<span class="ln"> 197</span><span class="pp">#endif</span>
+<span class="ln"> 198</span>
+<span class="ln"> 199</span><span class="pp">#ifdef MOM_VI_ORIGINAL_VISCA4</span>
+<span class="ln"> 200</span>          uD4(i,j) = recip_rAw(i,j,bi,bj)*(
+<span class="ln"> 201</span>     &amp;                             viscA4D*( Dij-Dmj )*cosFacU(j,bi,bj)
+<span class="ln"> 202</span>     &amp;  -_recip_hFacW(i,j,k,bi,bj)*viscA4Z*( Zip-Zij )
+<span class="ln"> 203</span>     &amp;                                    )
+<span class="ln"> 204</span>          vD4(i,j) = recip_rAs(i,j,bi,bj)*(
+<span class="ln"> 205</span>     &amp;   _recip_hFacS(i,j,k,bi,bj)*viscA4Z*( Zpj-Zij )*cosFacV(j,bi,bj)
+<span class="ln"> 206</span>     &amp;   +                         viscA4D*( Dij-Dim )
+<span class="ln"> 207</span>     &amp;                                    )
+<span class="ln"> 208</span><span class="pp">#else /* MOM_VI_ORIGINAL_VISCA4 */</span>
+<span class="ln"> 209</span>          uD4(i,j) = viscA4D*
+<span class="ln"> 210</span>     &amp;               cosFacU(j,bi,bj)*( Dij-Dmj )*recip_DXC(i,j,bi,bj)
+<span class="ln"> 211</span>     &amp;             - viscA4Z*_recip_hFacW(i,j,k,bi,bj)*
+<span class="ln"> 212</span>     &amp;                                ( Zip-Zij )*recip_DYG(i,j,bi,bj)
+<span class="ln"> 213</span>          vD4(i,j) = viscA4Z*_recip_hFacS(i,j,k,bi,bj)*
+<span class="ln"> 214</span>     &amp;               cosFacV(j,bi,bj)*( Zpj-Zij )*recip_DXG(i,j,bi,bj)
+<span class="ln"> 215</span>     &amp;             + viscA4D*         ( Dij-Dim )*recip_DYC(i,j,bi,bj)
+<span class="ln"> 216</span><span class="pp">#endif /* MOM_VI_ORIGINAL_VISCA4 */</span>
+<span class="ln"> 217</span>
+<span class="ln"> 218</span>         ENDDO
+<span class="ln"> 219</span>        ENDDO
+<span class="ln"> 220</span>       ENDIF</pre><pre><span class="ln"> 253</span>        else:                                                       <span class="cm"># :177-220</span>
+<span class="ln"> 254</span>            Dim = dStar[i, j-1]
+<span class="ln"> 255</span>            Dij = dStar[i, j]
+<span class="ln"> 256</span>            Dmj = dStar[i-1, j]
+<span class="ln"> 257</span>
+<span class="ln"> 258</span>            Zip = hFacZ[i, j+1]*zStar[i, j+1]
+<span class="ln"> 259</span>            Zij = hFacZ[i, j]*zStar[i, j]
+<span class="ln"> 260</span>            Zpj = hFacZ[i+1, j]*zStar[i+1, j]
+<span class="ln"> 261</span>
+<span class="ln"> 262</span>            uD4 = uD4.at[i, j].set(viscA4D*
+<span class="ln"> 263</span>                       cosFacU[j]*(Dij-Dmj)*recip_dxC[i, j]
+<span class="ln"> 264</span>                     - viscA4Z*recip_hFacW[i, j, k]*
+<span class="ln"> 265</span>                                        (Zip-Zij)*recip_dyG[i, j])
+<span class="ln"> 266</span>            vD4 = vD4.at[i, j].set(viscA4Z*recip_hFacS[i, j, k]*
+<span class="ln"> 267</span>                       cosFacV[j]*(Zpj-Zij)*recip_dxG[i, j]
+<span class="ln"> 268</span>                     + viscA4D*         (Dij-Dim)*recip_dyC[i, j])
+<span class="ln"> 269</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre><pre><span class="ln"> 257</span>        else:                                                       <span class="cm"># :177-220</span>
+<span class="ln"> 258</span>            Dim = dStar[:, jm1, i]
+<span class="ln"> 259</span>            Dij = dStar[:, j, i]
+<span class="ln"> 260</span>            Dmj = dStar[:, j, im1]
+<span class="ln"> 261</span>
+<span class="ln"> 262</span>            Zip = hFacZ[:, jp1, i]*zStar[:, jp1, i]
+<span class="ln"> 263</span>            Zij = hFacZ[:, j, i]*zStar[:, j, i]
+<span class="ln"> 264</span>            Zpj = hFacZ[:, j, ip1]*zStar[:, j, ip1]
+<span class="ln"> 265</span>
+<span class="ln"> 266</span>            uD4 = uD4.at[:, j, i].set(viscA4D*
+<span class="ln"> 267</span>                       cosFacU[:, j, None]*(Dij-Dmj)*recip_dxC[:, j, i]
+<span class="ln"> 268</span>                     - viscA4Z*recip_hFacW[:, kk, j, i]*
+<span class="ln"> 269</span>                                        (Zip-Zij)*recip_dyG[:, j, i])
+<span class="ln"> 270</span>            vD4 = vD4.at[:, j, i].set(viscA4Z*recip_hFacS[:, kk, j, i]*
+<span class="ln"> 271</span>                       cosFacV[:, j, None]*(Zpj-Zij)*recip_dxG[:, j, i]
+<span class="ln"> 272</span>                     + viscA4D*         (Dij-Dim)*recip_dyC[:, j, i])
+<span class="ln"> 273</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+<pre><span class="ln"> 221</span>       DO j=2-OLy,sNy+OLy-1
+<span class="ln"> 222</span>        DO i=2-OLx,sNx+OLx-1
+<span class="ln"> 223</span>          uD4(i,j) = -uD4(i,j)*maskW(i,j,k,bi,bj)*recip_deepFacC(k)
+<span class="ln"> 224</span>          vD4(i,j) = -vD4(i,j)*maskS(i,j,k,bi,bj)*recip_deepFacC(k)
+<span class="ln"> 225</span>          uDissip(i,j) = uDissip(i,j) + uD4(i,j)
+<span class="ln"> 226</span>          vDissip(i,j) = vDissip(i,j) + vD4(i,j)
+<span class="ln"> 227</span>        ENDDO
+<span class="ln"> 228</span>       ENDDO</pre><pre><span class="ln"> 270</span>        uD4 = uD4.at[i, j].set(-(uD4[i, j]*maskW[i, j, k]*recip_deepFacC[k]))   <span class="cm"># :221-228</span>
+<span class="ln"> 271</span>        vD4 = vD4.at[i, j].set(-(vD4[i, j]*maskS[i, j, k]*recip_deepFacC[k]))
+<span class="ln"> 272</span>        uDissip = uDissip.at[i, j].set(uDissip[i, j] + uD4[i, j])
+<span class="ln"> 273</span>        vDissip = vDissip.at[i, j].set(vDissip[i, j] + vD4[i, j])
+
+
+
+</pre><pre><span class="ln"> 274</span>        uD4 = uD4.at[:, j, i].set(-(uD4[:, j, i]*maskW[:, kk, j, i]*recip_deepFacC[kk]))   <span class="cm"># :221-228</span>
+<span class="ln"> 275</span>        vD4 = vD4.at[:, j, i].set(-(vD4[:, j, i]*maskS[:, kk, j, i]*recip_deepFacC[kk]))
+<span class="ln"> 276</span>        uDissip = uDissip.at[:, j, i].set(uDissip[:, j, i] + uD4[:, j, i])
+<span class="ln"> 277</span>        vDissip = vDissip.at[:, j, i].set(vDissip[:, j, i] + vD4[:, j, i])
+
+
+
+</pre>
+<pre><span class="ln"> 229</span><span class="pp">#ifdef ALLOW_DIAGNOSTICS</span>
+<span class="ln"> 230</span>       IF ( useDiagnostics ) THEN
+<span class="ln"> 231</span>        CALL DIAGNOSTICS_FILL( uD4, &#x27;Um_hDis4&#x27;, k,1,2,bi,bj, myThid )
+<span class="ln"> 232</span>        CALL DIAGNOSTICS_FILL( vD4, &#x27;Vm_hDis4&#x27;, k,1,2,bi,bj, myThid )
+<span class="ln"> 233</span>       ENDIF
+<span class="ln"> 234</span><span class="pp">#endif /* ALLOW_DIAGNOSTICS */</span>
+<span class="ln"> 235</span>      ENDIF
+<span class="ln"> 236</span>
+<span class="ln"> 237</span>      RETURN
+<span class="ln"> 238</span>      END</pre><pre><span class="ln"> 274</span>        if cfg.ALLOW_DIAGNOSTICS and cfg.useDiagnostics:            <span class="cm"># :229-234</span>
+<span class="ln"> 275</span>            raise NotImplementedError(&quot;MOM_VI_HDISSIP: DIAGNOSTICS_FILL (pkg/diagnostics is not ported)&quot;)
+<span class="ln"> 276</span>
+<span class="ln"> 277</span>    return uDissip, vDissip
+
+
+
+
+
+</pre><pre><span class="ln"> 278</span>        if cfg.ALLOW_DIAGNOSTICS and cfg.useDiagnostics:            <span class="cm"># :229-234</span>
+<span class="ln"> 279</span>            raise NotImplementedError(&quot;MOM_VI_HDISSIP: DIAGNOSTICS_FILL (pkg/diagnostics is not ported)&quot;)
+<span class="ln"> 280</span>
+<span class="ln"> 281</span>    return uDissip, vDissip
+
+
+
+
+
+</pre>
+</div>
+<p class='muted'>Generated by dev/prototype/make_side_by_side.py from the committed sources.</p></body></html>

@@ -1,0 +1,5 @@
+# current coverage data (plan Task 5): scripts/tests/test_coverage.py reads this file
+binaries 7fd68e0
+runs job27827383
+collect gcov-9c7ed2d
+report job27827383-r27827550

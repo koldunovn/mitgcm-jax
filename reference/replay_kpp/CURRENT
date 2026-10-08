@@ -1,0 +1,3 @@
+# KPP replay runs (relative to $MJX_REFERENCE): experiment input_dir run directory; made by reference/replay_kpp/jobs/replay.sbatch at 259b85e (job 27840716)
+vermix input replay_kpp/vermix-code-63cdc0b-259b85e-job27840716/runs/vermix/input/job27840716/rundir
+vermix input.dd replay_kpp/vermix-code-63cdc0b-259b85e-job27840716/runs/vermix/input.dd/job27840716/rundir

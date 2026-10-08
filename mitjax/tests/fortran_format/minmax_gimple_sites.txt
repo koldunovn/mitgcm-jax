@@ -1,0 +1,29 @@
+# GIMPLE MIN_EXPR/MAX_EXPR of the oracle's monitor sources (floating-point sites; SSA numbers removed).
+# gfortran 11.2.0, FFLAGS/FOPTIM of $MJX_REFERENCE/build/<build>/bld/Makefile + -fdump-tree-optimized, on bld/<file>.f;
+# objects byte-identical to the build's own. Identical in the six M1 builds: advect_xy-code-63cdc0b-f48c062 advect_xz-code-63cdc0b-f48c062 global_ocean.90x40x15-code-63cdc0b-f48c062 tutorial_baroclinic_gyre-code-63cdc0b-f48c062 tutorial_barotropic_gyre-code-63cdc0b-f48c062 tutorial_global_oce_optim-code_ad-63cdc0b-f48c062 
+mon_calc_stats_rl: M = MIN_EXPR <tmpval, M>;
+mon_calc_stats_rl: M = MAX_EXPR <tmpval, M>;
+mon_calc_stats_rs: M = MIN_EXPR <tmpval, M>;
+mon_calc_stats_rs: M = MAX_EXPR <tmpval, M>;
+mon_stats_rs: M = MIN_EXPR <M, tmpval>;
+mon_stats_rs: M = MAX_EXPR <M, tmpval>;
+mon_ke: M = MAX_EXPR <tmpval, M>;
+mon_vort3: M = MIN_EXPR <tmpval, M>;
+mon_vort3: M = MAX_EXPR <tmpval, M>;
+monitor: M = MAX_EXPR <M, >;
+mon_advcfl: M = MAX_EXPR <tmpval, M>;
+mon_advcflw: M = MAX_EXPR <tmpval, M>;
+mon_advcflw2: M = MAX_EXPR <, M>;
+mon_advcflw2: M = MAX_EXPR <tmpval, M>;
+mon_calc_advcfl: M = MAX_EXPR <M, 0>;
+mon_calc_advcfl: M = MIN_EXPR <M, 0>;
+mon_calc_advcfl: M = MAX_EXPR <tmpval, M>;
+mon_calc_advcfl: M = MAX_EXPR <M, 0>;
+mon_calc_advcfl: M = MIN_EXPR <M, 0>;
+mon_calc_advcfl: M = MAX_EXPR <tmpval, M>;
+mon_calc_advcfl: M = MAX_EXPR <M, 0>;
+mon_calc_advcfl: M = MIN_EXPR <M, 0>;
+mon_calc_advcfl: M = MAX_EXPR <tmpval, M>;
+mon_calc_advcfl: M = MAX_EXPR <, M>;
+mon_calc_advcfl: M = MAX_EXPR <, M>;
+mon_calc_advcfl: M = MAX_EXPR <, M>;

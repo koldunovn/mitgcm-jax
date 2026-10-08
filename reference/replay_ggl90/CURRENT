@@ -1,0 +1,3 @@
+# GGL90 replay runs (relative to $MJX_REFERENCE): experiment input_dir run directory; made by reference/replay_ggl90/jobs/replay.sbatch at de0fa9b
+vermix input.gglLC replay_ggl90/vermix-code-63cdc0b-de0fa9b-job27840798/runs/vermix/input.gglLC/job27840798/rundir
+global_ocean.90x40x15 input.idemix replay_ggl90/global_ocean.90x40x15-code-63cdc0b-de0fa9b-job27840799/runs/global_ocean.90x40x15/input.idemix/job27840799/rundir

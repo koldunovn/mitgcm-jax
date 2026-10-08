@@ -1,0 +1,5 @@
+# COLMIX all-steps dump runs (relative to $MJX_RUNS): experiment input_dir run top; lane A's frozen binary
+# vermix-code-63cdc0b-463504e-jaxdump with JAXDUMP_STEPS = 0..19 (job 27841219; script $MJX_RUNS/colmix/jobs/jd_all.sbatch)
+vermix input.opps colmix/jd/vermix/input.opps/job27841219-jdall
+vermix input.pp81 colmix/jd/vermix/input.pp81/job27841219-jdall
+vermix input.my82 colmix/jd/vermix/input.my82/job27841219-jdall

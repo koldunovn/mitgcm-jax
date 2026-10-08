@@ -1,0 +1,4 @@
+# COLMIX replay runs (relative to $MJX_RUNS): experiment input_dir run directory; made by reference/replay_colmix/jobs/replay.sbatch at f182d08 (cm_orig.bin added; cm_in/cm_out identical to the 7d4c08f runs 27840829-27840831)
+vermix input.pp81 colmix/replay/vermix-code-63cdc0b-f182d08-job27841070/runs/vermix/input.pp81/job27841070/verification/vermix/tr_run.pp81
+vermix input.my82 colmix/replay/vermix-code-63cdc0b-f182d08-job27841071/runs/vermix/input.my82/job27841071/verification/vermix/tr_run.my82
+vermix input.opps colmix/replay/vermix-code-63cdc0b-f182d08-job27841072/runs/vermix/input.opps/job27841072/verification/vermix/tr_run.opps

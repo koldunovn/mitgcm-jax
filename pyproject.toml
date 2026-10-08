@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77"]      # 77: SPDX `license` string + `license-files` (PEP 639)
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mitjax"
+version = "0.0.1"
+description = "MITgcm master (63cdc0b) in JAX: literal, differentiable, parallel"
+requires-python = ">=3.12"
+authors = [{ name = "Nikolay Koldunov", email = "koldunovn@gmail.com" }]
+# MIT, with MITgcm's notice kept in the same file (docs plan 20261006 decision 13)
+license = "MIT"
+license-files = ["LICENSE"]
+# Floors only; the exact set is constraints.txt (docs/ENV.md; environment.yml for users). A user installs mitjax with
+# `pip install -e .` (scripts/pip_install_check.sbatch tests it); our development env `mitjax` gets these dependencies
+# but never mitjax itself: an installed (or editable) mitjax would be imported instead of the worktree under test
+# (fesom_jax lessons §7), so worktrees run with PYTHONPATH=<worktree> (docs/ENV.md, "developer mode").
+dependencies = [
+    "jax>=0.10.1",
+    "numpy>=2.0",
+    "scipy>=1.14",
+    "netCDF4>=1.7",      # mnc output of the verification experiments
+]
+
+[project.urls]
+Repository = "https://github.com/koldunovn/mitgcm-jax"
+Documentation = "https://github.com/koldunovn/mitgcm-jax/tree/main/docs"
+MITgcm = "https://github.com/MITgcm/MITgcm"
+
+[project.optional-dependencies]
+# GPU: CUDA 12 + cuDNN as pip wheels, no system CUDA module on Levante.
+cuda = ["jax[cuda12]>=0.10.1"]
+dev = ["pytest>=8"]
+# The laptop notebooks (notebooks/01-04): `pip install -e ".[notebooks]"` (docs/ENV.md). nereus (cubed-sphere maps,
+# plan decision 9) is needed only by the cluster notebooks and is not listed here.
+notebooks = ["matplotlib>=3.10", "nbclient>=0.11", "nbformat>=5.10", "ipykernel>=7.3"]
+
+[tool.setuptools.packages.find]
+include = ["mitjax*"]
+
+[tool.pytest.ini_options]
+# Must equal TEST_DIRS in mitjax/tests/manifest.py (test_manifest.py checks it).
+testpaths = ["mitjax/tests", "scripts/tests"]
+addopts = "-p no:cacheprovider"
+markers = [
+    "smoke: seconds-scale checks, safe on a login node (`pytest -m smoke`); part of tier 1",
+    "tier1: fast suite (< 10 min, < 100 tests on one CPU compute node, every commit)",
+    "tier1x: extended CPU suite: substep dump gates, replay gates, P=4 forward, FD sweeps, negative controls (nightly)",
+    "tier2: GPU suite (nightly / milestone)",
+    "tier3: milestone climate twins (cost stated, Nikolay's yes before submission)",
+]

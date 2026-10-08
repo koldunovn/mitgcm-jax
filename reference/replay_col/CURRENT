@@ -1,0 +1,4 @@
+# COL replay runs (relative to $MJX_REFERENCE): experiment input_dir run directory; made by reference/replay_col/jobs/replay.sbatch at cc17eff
+tutorial_baroclinic_gyre input replay_col/tutorial_baroclinic_gyre-code-63cdc0b-cc17eff-job27829172/runs/tutorial_baroclinic_gyre/input/job27829172/rundir
+global_ocean.90x40x15 input replay_col/global_ocean.90x40x15-code-63cdc0b-cc17eff-job27829173/runs/global_ocean.90x40x15/input/job27829173/rundir
+tutorial_global_oce_optim input_ad replay_col/tutorial_global_oce_optim-code_ad-63cdc0b-cc17eff-job27829174/runs/tutorial_global_oce_optim/input_ad/job27829174/rundir

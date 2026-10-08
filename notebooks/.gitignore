@@ -1,0 +1,3 @@
+# what the notebooks write next to themselves (new directories on every run)
+runs/
+my_experiments/

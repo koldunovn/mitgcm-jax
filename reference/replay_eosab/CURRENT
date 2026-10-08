@@ -1,0 +1,2 @@
+# EOSAB replay runs (relative to $MJX_RUNS): experiment input_dir run directory; made by reference/replay_eosab/jobs/replay.sbatch at d4bd2fe (job 27842175: REPLAY OK; find_alpha.f, find_rho.f, pressure_for_eos.f, ini_eos.f byte-identical to the M3 oracle build vermix-code-63cdc0b-463504e)
+vermix input eosab/replay/vermix-code-63cdc0b-d4bd2fe-job27842175/runs/vermix/input/job27842175/verification/vermix/run

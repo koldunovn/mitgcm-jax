@@ -1,0 +1,3 @@
+# GO replay runs (relative to $MJX_RUNS): experiment input_dir run directory; made by reference/replay_go/jobs/replay.sbatch at 37620af
+global_ocean.90x40x15 input replay_go/global_ocean.90x40x15-code-63cdc0b-37620af-job27833629/runs/global_ocean.90x40x15/input/job27833629/verification/global_ocean.90x40x15/run
+advect_xz input.nlfs replay_go/advect_xz-code-63cdc0b-37620af-job27833630/runs/advect_xz/input.nlfs/job27833630/verification/advect_xz/tr_run.nlfs
