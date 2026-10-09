@@ -3,13 +3,16 @@ required, MJX_RUNS ./runs, MJX_CACHE the user cache, the python the running one)
 project's values) every location derives from the work root as before; each variable overrides its own path and the
 ones derived from it, the ECCO port's `MITJAX_*` variables are ignored, and no file of the repository but levante.env
 hard-codes the work root (paths.py and the batch scripts included: their defaults are neutral since 2026-10-08),
-reads `MITJAX_*` or points into the ECCO port (`~/MIT`). The expected root is the one levante.env sets."""
+reads `MITJAX_*` or points into the ECCO port (`~/MIT`). The expected root is the one levante.env sets. The check
+that MJX_UPSTREAM is a git checkout at the pinned commit (params_io._check_upstream) says how to get one."""
 
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -60,8 +63,9 @@ def scan(files, this_test="mitjax/tests/test_paths.py"):
     return work_root, prefix, ecco
 
 
-def test_paths():
-    """One test (tier 1 counts tests against a budget of 100): defaults, overrides, foreign prefix, hard-coded roots."""
+def test_paths(monkeypatch, tmp_path):
+    """One test (tier 1 counts tests against a budget of 100): defaults, overrides, foreign prefix, hard-coded roots,
+    the MJX_UPSTREAM commit check."""
     # neutral defaults: nothing of this machine; MJX_UPSTREAM required (MissingPath names it)
     xdg = os.environ.get("XDG_CACHE_HOME", "").strip()
     p = resolved(cwd="/")
@@ -101,3 +105,35 @@ def test_paths():
                ("mitjax/ok.py", "~/MITjax/docs")]
     assert scan(planted) == (["mitjax/a.py", "scripts/e.sbatch", "mitjax/paths.py"], ["tools/b.py"],
                              ["scripts/c.sh", "mitjax/d.py"])
+
+    # MJX_UPSTREAM at another commit, not a checkout, or a directory inside another checkout: each error gives the
+    # commands that make a checkout at the pinned commit (a worktree next to the user's own clone; Martin Losch's
+    # report 2026-10-09: his clone was at master 7c2f8f2)
+    from mitjax import params_io
+    from mitjax import paths as mpaths
+
+    def refusal(up):
+        monkeypatch.setattr(mpaths, "UPSTREAM", up, raising=False)
+        params_io._check_upstream.cache_clear()
+        with pytest.raises(RuntimeError) as e:
+            params_io._check_upstream()
+        return str(e.value)
+    try:
+        repo = tmp_path / "MITgcm"
+        repo.mkdir()
+        git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
+        subprocess.run(git + ["init", "-q"], check=True)
+        (repo / "README").write_text("x\n")
+        subprocess.run(git + ["add", "README"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "x"], check=True)
+        sha = subprocess.run(git + ["rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+        msg = refusal(repo)
+        assert f"MJX_UPSTREAM={repo} is at {sha[:7]}, but mitjax is a port of MITgcm 63cdc0b" in msg, msg
+        assert f"git -C {repo} worktree add {repo}-63cdc0b 63cdc0b\n    export MJX_UPSTREAM={repo}-63cdc0b" in msg, msg
+        for up in (tmp_path / "plain", repo / "sub"):
+            up.mkdir()
+            msg = refusal(up)
+            assert f"MJX_UPSTREAM={up} is not a git checkout of MITgcm" in msg, msg
+            assert "git clone https://github.com/MITgcm/MITgcm && git -C MITgcm checkout 63cdc0b" in msg, msg
+    finally:
+        params_io._check_upstream.cache_clear()

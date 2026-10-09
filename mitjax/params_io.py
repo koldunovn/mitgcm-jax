@@ -43,10 +43,30 @@ PINNED = "63cdc0b9602b46bda69df37c5eb9e17396116f67"
 
 @lru_cache(maxsize=None)
 def _check_upstream():
-    head = subprocess.run(["git", "-C", str(paths.UPSTREAM), "rev-parse", "HEAD"], capture_output=True, text=True,
-                          check=True).stdout.strip()
+    """MJX_UPSTREAM is a git checkout (its own top level) at PINNED. The errors say how to get one: a user with an
+    MITgcm clone at another commit adds a worktree of PINNED next to it (Martin Losch's report, 2026-10-09)."""
+    up, pin = paths.UPSTREAM, PINNED[:7]
+    why = f"MITgcm {pin} (the defaults and namelists it reads from the Fortran are cited by line at that commit)"
+    try:
+        r = subprocess.run(["git", "-C", str(up), "rev-parse", "--show-toplevel", "HEAD"], capture_output=True,
+                           text=True)
+        out, err = r.stdout.splitlines(), r.stderr.strip().splitlines()
+        problem = None if r.returncode == 0 else (err[0] if err else f"git exit {r.returncode}")
+    except FileNotFoundError:
+        out, problem = [], "git is not installed"
+    if problem is None and (len(out) != 2 or Path(out[0]).resolve() != Path(up).resolve()):
+        problem = f"its git top level is {out[0] if out else '?'}"
+    if problem is not None:
+        raise RuntimeError(f"MJX_UPSTREAM={up} is not a git checkout of MITgcm ({problem}), but mitjax is a port of "
+                           f"{why} and checks the commit. Clone MITgcm at {pin}:\n"
+                           f"    git clone https://github.com/MITgcm/MITgcm && git -C MITgcm checkout {pin}\n"
+                           f"    export MJX_UPSTREAM=$PWD/MITgcm")
+    head = out[1]
     if head != PINNED:
-        raise RuntimeError(f"{paths.UPSTREAM} is at {head}, not the pinned {PINNED}: citations would not hold")
+        raise RuntimeError(f"MJX_UPSTREAM={up} is at {head[:7]}, but mitjax is a port of {why}. Keep your clone and "
+                           f"add a checkout of {pin} next to it:\n"
+                           f"    git -C {up} worktree add {up}-{pin} {pin}\n"
+                           f"    export MJX_UPSTREAM={up}-{pin}")
     return True
 
 

@@ -26,6 +26,10 @@ The commands here and in the other pages run from this directory, the one that h
 cloned next to the mitgcm-jax checkout, not inside it, so that the tests that walk the repository do not walk
 MITgcm too.
 
+If you already have an MITgcm clone at another commit, keep it and add a checkout of `63cdc0b` next to it instead
+of cloning again: `git -C MITgcm worktree add MITgcm-63cdc0b 63cdc0b`, then
+`export MJX_UPSTREAM=$PWD/MITgcm-63cdc0b`.
+
 Then try a run (see [running.md](running.md)):
 
 ```bash
@@ -53,7 +57,7 @@ memory of 2.0 GiB (measured three times on 8 cores of an AMD EPYC 7763 CPU node)
 - **`MJX_UPSTREAM`** is the MITgcm checkout at commit `63cdc0b` (checkpoint69q plus 9 commits).
   mitjax reads the Fortran sources from it (the packages' `*_OPTIONS.h`, the `NAMELIST` statements, the default
   values it cites) and the verification experiments. Another commit is refused: every citation in the code refers
-  to `63cdc0b`.
+  to `63cdc0b`. The error gives the `git worktree` commands above for your clone.
 - **A C preprocessor** is needed at run time: mitjax preprocesses the experiment's `*_OPTIONS.h` files as MITgcm's
   `genmake2` does (`cpp -traditional -P`). On Linux this is GNU cpp (the `cpp` of gcc); on macOS clang's cpp from
   the Xcode command line tools. `MJX_CPP` names another preprocessor, `MJX_CPP_DEFINES` replaces the default macro
