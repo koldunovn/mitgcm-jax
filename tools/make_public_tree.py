@@ -125,6 +125,7 @@ CONTENT = [
     ("scripts/run_tier1.sbatch", PUBLISH, "tier-1 runner (checking_a_change.md)", False),
     ("scripts/run_tier1x.sbatch", PUBLISH, "tier-1x runner", False),
     ("scripts/run_tier2.sbatch", PUBLISH, "tier-2 GPU runner", False),
+    ("scripts/example_gpu.sbatch", PUBLISH, "the GPU example (parallel.md, Nikolay 2026-10-08)", False),
     ("scripts/run_docs_notebooks.sbatch", PUBLISH, "cluster-notebook runner (test_notebooks_cluster.py)", False),
     ("scripts/fresh_install.sbatch", PUBLISH, "the fresh-install check (env from environment.yml + notebook 01)",
      False),

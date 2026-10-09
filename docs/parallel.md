@@ -31,7 +31,8 @@ number of JAX devices stops with `mitjax.api.DeviceCountError` (a `ValueError`) 
   cores; this is for checking, not for speed). For another number, set the flag in `XLA_FLAGS` yourself before JAX
   starts: your own entries win ([troubleshooting.md](troubleshooting.md#xla-flags)). If JAX has already started,
   mitjax cannot change its flags.
-- **GPU:** one device per GPU. The project's GPU tests run on 1 and 4 NVIDIA A100 80 GB.
+- **GPU:** one device per GPU. The project's GPU tests run on 1 and 4 NVIDIA A100 80 GB. See
+  [Running on GPUs](#running-on-gpus).
 
 ## What to expect
 
@@ -67,11 +68,52 @@ own floor: the largest relative change of the P = 1 gradient when the adjoint st
 repeat floor is the largest relative difference between the two runs. |g_P4 - g_P1| must stay within the floors of
 P = 1 and P = 4 plus the summation-order difference measured on CPU between the same two programs (for
 `tutorial_global_oce_optim`: 7.66e-15, bound 2.06e-14). A gross-bug guard checks linearity on the GPU (a seed of 2
-against twice a seed of 1, relative 1e-12) and that a zero seed gives exactly zero. The GPU runs use the CPU flag set
-without `--xla_disable_hlo_passes=algsimp`: with it the XLA GPU compile of a 10-step gradient took 701 s, without it
-254 s (one A100); the GPU makes no bit-for-bit claim.
+against twice a seed of 1, relative 1e-12) and that a zero seed gives exactly zero. The GPU makes no bit-for-bit
+claim against the CPU.
+
+## Running on GPUs
+
+1. **Install** jax's CUDA wheels in the same environment: `pip install "jax[cuda12]==0.10.1"`
+   ([install.md](install.md)). Leave `JAX_PLATFORMS` unset (or set it to `cuda`);
+   `python -c "import jax; print(jax.devices())"` then lists one CUDA device per GPU.
+2. **Run** as on the CPU, with `devices=` (`--devices` on the command line) up to the number of GPUs.
+3. **Example:** [`scripts/example_gpu.sbatch`](../scripts/example_gpu.sbatch) runs
+   `tutorial_global_oce_optim/input_ad` through the command line on one node with 4 GPUs: the forward run on 1 and
+   on 4 GPUs, the gradient on 1 and on 4 GPUs, and the gradient check on 1 GPU compared with TAF's
+   `results/output_adm.txt`. Its `#SBATCH` lines are for the cluster it was written on; change the partition,
+   account and constraint for yours. It writes into a new directory `$MJX_RUNS/example_gpu/<job id>`; `summary.txt`
+   there holds the results.
+
+Measured with that script on one node with 4 NVIDIA A100 80 GB (2026-10-09):
+
+| step | wall time | result |
+|---|---|---|
+| forward run, 1 GPU / 4 GPUs | 220 s / 258 s | `output.txt` identical |
+| gradient, 1 GPU / 4 GPUs | 268 s / 249 s | `fc` identical; max \|g_4 - g_1\| = 1.4e-14 max \|g_1\| (491 of 3600 values differ) |
+| gradient check, 1 GPU | 363 s | against TAF's `output_adm.txt`: cost 15 digits, gradient 16 digits (testreport: pass) |
+
+Most of each time is compilation: on 8 CPU cores the same forward run and gradient take about 3 and 3.5 minutes
+(notebook 07). This 10-step example shows that the GPUs give the right answer, not that they are faster.
+
+**XLA flags.** The API sets the same XLA flags on a GPU as on the CPU
+([troubleshooting.md](troubleshooting.md#xla-flags)). Two passes are disabled for GPUs' sake,
+`--xla_disable_hlo_passes=algsimp,multi_output_fusion`. With `algsimp`, XLA compiled a wrong program for 4 GPUs (the
+forward run left the 1-GPU result from step 2 on). With `multi_output_fusion`, it built a GPU kernel that wrote a
+field in place while other threads of the same kernel still read it, so the cost and the gradient changed from call
+to call. If you set `--xla_disable_hlo_passes` yourself, mitjax adds the two passes to your list. Disabling
+`algsimp` costs compile time: 701 s instead of 254 s for a 10-step gradient program on one A100.
+
+**Reproducibility.** On a GPU the forward run is bitwise reproducible, from call to call and between 1 and 4 GPUs.
+The gradient is not: two runs of the same 10-step gradient on one A100 differ by up to 2.5e-15 relative (tier 2,
+`tutorial_baroclinic_gyre`, `mitjax/tests/test_sharded_grad_gpu.py`). So GPU gradients are compared with GPU
+gradients, against this measured repeat floor (see [What to expect](#what-to-expect)), and never bit for bit with
+the CPU.
+
+**Tested:** NVIDIA A100 80 GB, 1 and 4 GPUs on one node, the CUDA 12 wheels of jax 0.10.1. Other GPUs are not
+tested.
 
 ## Not supported
 
 - Several MPI processes (`nPx * nPy > 1` in `SIZE.h`): use more tiles and devices instead.
+- Several nodes: mitjax runs as one process, so its devices are those of one machine.
 - The gradient check (`grdchk`) on several devices: it has no `devices` argument.

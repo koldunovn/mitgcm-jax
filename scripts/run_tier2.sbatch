@@ -7,7 +7,7 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus=4
 #SBATCH --cpus-per-task=32
-#SBATCH --time=00:30:00          # size it from the measured first-call times (test_sharded_grad_gpu.py docstring)
+#SBATCH --time=01:30:00          # gate flag set: compiles about 2.8 x longer than the retired gpu set (5:26 with it)
 #SBATCH --output=slurm-%x-%j.out
 #
 # Tier 2: the GPU tests (sharded gradients on 4 real A100s vs 1, repeats, linearity guards) on one GPU node.
@@ -69,9 +69,9 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 export PYTHONPATH=$SRC
 export PYTHONPYCACHEPREFIX=$OUT_DIR/pycache
 export MJX_TIER2_OUT=$OUT_DIR
-# GPU-only flag set (mitjax/xla_flags.py flag_set): the gate flags without --xla_disable_hlo_passes=algsimp, which more
-# than doubles the XLA GPU compile of a gradient program; GPU tests compare against measured repeat floors only.
-export MJX_XLA_FLAG_SET=gpu
+# XLA flags: the gate set, as every run (mitjax/xla_flags.py). The GPU-only set MJX_XLA_FLAG_SET=gpu (algsimp on, a
+# compile 2.8 x shorter; this job took 5:26 with it, 27980674) is retired since 2026-10-08: XLA compiled a wrong
+# 4-GPU program with it (jobs 27980864, 27981958). The GPU tests compare against measured repeat floors only.
 # Unbuffered output and a stack dump of every thread after 10 min in one test: job 27832889 hit its time limit inside
 # the first gradient call and left an EMPTY pytest.log (block-buffered stdout), so where the time went was lost.
 export PYTHONUNBUFFERED=1

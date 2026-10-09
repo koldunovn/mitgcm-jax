@@ -27,7 +27,7 @@ What is checked against MITgcm, per verification experiment (from [docs/status.m
 | `advect_xy` | 2 | 2 | 2 | 2 |  |
 | `advect_xz` | 3 | 3 | 3 | 3 |  |
 | `global_ocean.90x40x15` | 7 | 5 | 5 | 2 |  |
-| `tutorial_global_oce_optim` | 1 | 1 | 1 | 1 |  |
+| `tutorial_global_oce_optim` | 1 | 1 | 1 | 1 | 1 |
 | `adjustment.cs-32x32x1` | 3 | 2 |  | 1 |  |
 | `solid-body.cs-32x32x1` | 1 | 1 | 1 | 1 |  |
 | `advect_cs` | 1 | 1 | 1 | 1 |  |

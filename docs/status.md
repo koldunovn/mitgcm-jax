@@ -26,7 +26,7 @@ helpers it imports; failing that, through the experiments its module docstring n
 named `*control*` or `*planted*`) never count. The rule reads test code, so a cell can miss a test that reaches a
 variant in a way the rule does not follow; it does not invent one.
 
-81 registered variants; 46 with at least one test named below: 46 forward, 29 gradient, 21 sharded, 1 gpu.
+81 registered variants; 46 with at least one test named below: 46 forward, 29 gradient, 21 sharded, 2 gpu.
 
 | milestone | experiment | input | code | forward | gradient | sharded | GPU |
 |---|---|---|---|---|---|---|---|
@@ -38,7 +38,7 @@ variant in a way the rule does not follow; it does not invent one.
 | M1 | `advect_xz` | `input.nlfs` | `code` | [test_r3_nlfs](../mitjax/tests/test_r3_nlfs.py) | [test_gad_simple](../mitjax/tests/test_gad_simple.py) | [test_m1_pn_advect_xz](../mitjax/tests/test_m1_pn_advect_xz.py) |  |
 | M1 | `advect_xz` | `input.pqm` | `code` | [test_r3_advection](../mitjax/tests/test_r3_advection.py) | [test_r3_advection](../mitjax/tests/test_r3_advection.py) | [test_m1_pn_advect_xz](../mitjax/tests/test_m1_pn_advect_xz.py) |  |
 | M1 | `global_ocean.90x40x15` | `input` | `code` | [test_r4c_global_ocean_run](../mitjax/tests/test_r4c_global_ocean_run.py) | [test_forcing](../mitjax/tests/test_forcing.py)<br>[test_gmredi](../mitjax/tests/test_gmredi.py)<br>[test_rstar](../mitjax/tests/test_rstar.py)<br>[test_sbo](../mitjax/tests/test_sbo.py) | [test_api_followups](../mitjax/tests/test_api_followups.py)<br>[test_r4c_global_ocean_run](../mitjax/tests/test_r4c_global_ocean_run.py) |  |
-| M1 | `tutorial_global_oce_optim` | `input_ad` | `code_ad` | [test_r5_optim_ad](../mitjax/tests/test_r5_optim_ad.py) | [test_column_physics](../mitjax/tests/test_column_physics.py)<br>[test_ctrl_cost](../mitjax/tests/test_ctrl_cost.py)<br>[test_forcing](../mitjax/tests/test_forcing.py)<br>[test_gmredi](../mitjax/tests/test_gmredi.py)<br>[test_mom_kernels](../mitjax/tests/test_mom_kernels.py)<br>[test_r5_adjoint](../mitjax/tests/test_r5_adjoint.py) | [test_api](../mitjax/tests/test_api.py)<br>[test_m1_pn](../mitjax/tests/test_m1_pn.py)<br>[test_no_reference](../mitjax/tests/test_no_reference.py) |  |
+| M1 | `tutorial_global_oce_optim` | `input_ad` | `code_ad` | [test_r5_optim_ad](../mitjax/tests/test_r5_optim_ad.py) | [test_column_physics](../mitjax/tests/test_column_physics.py)<br>[test_ctrl_cost](../mitjax/tests/test_ctrl_cost.py)<br>[test_forcing](../mitjax/tests/test_forcing.py)<br>[test_gmredi](../mitjax/tests/test_gmredi.py)<br>[test_mom_kernels](../mitjax/tests/test_mom_kernels.py)<br>[test_r5_adjoint](../mitjax/tests/test_r5_adjoint.py) | [test_api](../mitjax/tests/test_api.py)<br>[test_m1_pn](../mitjax/tests/test_m1_pn.py)<br>[test_no_reference](../mitjax/tests/test_no_reference.py) | [test_gpu_race](../mitjax/tests/test_gpu_race.py) |
 | M2 | `adjustment.cs-32x32x1` | `input` | `code` | [test_cube_run](../mitjax/tests/test_cube_run.py) |  | [test_api_followups](../mitjax/tests/test_api_followups.py)<br>[test_cube](../mitjax/tests/test_cube.py)<br>[test_cube_run](../mitjax/tests/test_cube_run.py) |  |
 | M2 | `adjustment.cs-32x32x1` | `input.nlfs` | `code` | [test_cube_run](../mitjax/tests/test_cube_run.py)<br>[test_m2accept_pn](../mitjax/tests/test_m2accept_pn.py) |  |  |  |
 | M2 | `solid-body.cs-32x32x1` | `input` | `code` | [test_cube_run](../mitjax/tests/test_cube_run.py) | [test_vecinv](../mitjax/tests/test_vecinv.py) | [test_cube](../mitjax/tests/test_cube.py)<br>[test_cube_run](../mitjax/tests/test_cube_run.py) |  |
@@ -143,6 +143,7 @@ functions that put the file in a column.
 | [`mitjax/tests/test_goadk_adjoint_kapgm.py`](../mitjax/tests/test_goadk_adjoint_kapgm.py) | tier1x | gradient: `test_adjoint_gradient_matches_taf`, `test_dot_test`, `test_grdchk_fd_lines` |
 | [`mitjax/tests/test_goadk_adjoint_kapredi.py`](../mitjax/tests/test_goadk_adjoint_kapredi.py) | tier1x | gradient: `test_adjoint_gradient_matches_taf`, `test_dot_test`, `test_grdchk_fd_lines` |
 | [`mitjax/tests/test_goadk_model.py`](../mitjax/tests/test_goadk_model.py) | tier1x | forward: `test_whole_run_monitor_and_cost` |
+| [`mitjax/tests/test_gpu_race.py`](../mitjax/tests/test_gpu_race.py) | tier2 | gpu: `test_gpu_race_control`, `test_gpu_vjp_forward_no_race` |
 | [`mitjax/tests/test_kpp.py`](../mitjax/tests/test_kpp.py) | tier1x | gradient: `test_gradient_dot_test_and_fd`, `test_gradient_finite_every_lane` |
 | [`mitjax/tests/test_m1_pn.py`](../mitjax/tests/test_m1_pn.py) | tier1x | forward: `test_whole_run_carry_finite`; sharded: `test_pn_equals_p1_whole_run_and_nan_storage` |
 | [`mitjax/tests/test_m1_pn_advect_xz.py`](../mitjax/tests/test_m1_pn_advect_xz.py) | tier1x | sharded: `test_p2_equals_p1_whole_run_and_nan_storage` |

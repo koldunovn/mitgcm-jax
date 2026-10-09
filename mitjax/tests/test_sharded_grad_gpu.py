@@ -6,7 +6,8 @@ $MJX_SHARDGRAD_P, default 4: one tile per GPU; ShardedExchanger ppermute rounds 
 Each program also returns the final State of its own forward pass, so the forward comparison costs no second program.
 
 Run by scripts/run_tier2.sbatch (`--gpus=4`: all three tests in one job; `--gpus=1 ... p1_gpu`: test_p1_gpu), with
-the GPU-only XLA flag set (MJX_XLA_FLAG_SET=gpu: the gate flags without algsimp disabled, mitjax/xla_flags.py). The
+the gate XLA flag set since 2026-10-08 (mitjax/xla_flags.py; the GPU-only set without algsimp disabled, used by the
+runs quoted below, is retired: XLA compiled a wrong 4-GPU program with it, jobs 27980864, 27981958). The
 model is built on the host CPU and placed on the GPUs. A GPU run need not be bitwise reproducible (scatter-add atomics
 in the transposes), so every GPU comparison is made against its MEASURED repeat floor: each program runs twice with the
 same inputs; floor = max over leaves of max|a - a'| / max|a| (shardgrad_gate.summary, per-leaf relative).

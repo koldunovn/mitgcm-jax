@@ -55,14 +55,25 @@ mitjax sets `XLA_FLAGS` once, before JAX starts its first computation (`mitjax/x
 
 - `--xla_cpu_max_isa=AVX`: no fused multiply-add on x86-64 CPUs (MITgcm's reference build has none). The API leaves
   it out on other processors: there it would filter nothing.
-- `--xla_disable_hlo_passes=algsimp`: no algebraic rewrites that change rounding (`x/d` into `x*(1/d)`).
+- `--xla_disable_hlo_passes=algsimp,multi_output_fusion`: two XLA passes switched off.
+  - `algsimp`: no algebraic rewrites that change rounding (`x/d` into `x*(1/d)`). Keep it on GPUs too: with this
+    pass enabled, XLA compiled a wrong program for `tutorial_global_oce_optim` on 4 A100 GPUs (neighbouring tiles
+    exchanged a surface forcing term from the second step on, and the gradient was wrong), while the same run with
+    the flag was right ([parallel.md](parallel.md#what-to-expect)).
+  - `multi_output_fusion`: no GPU kernels that compute several outputs at once. With it, XLA built a kernel for the
+    gradient of `tutorial_global_oce_optim` that overwrote the free-surface height `etaH` while other threads of the
+    same kernel still read it, so every call gave another cost and gradient. Without it the cost is the same on every
+    call and the gradient check matches TAF's `output_adm.txt` to 15-16 digits on one A100. XLA:CPU does not run
+    this pass by default, so CPU results do not change.
 - `--xla_force_host_platform_device_count=4`: four CPU devices for sharded runs ([parallel.md](parallel.md)).
 
 XLA reads `XLA_FLAGS` only when the first backend starts, so set your own `XLA_FLAGS` before your first JAX
 computation. For the API and the command line (`python -m mitjax run`, `gradient`, `grdchk`) your own entries win:
-a flag you set is left as you set it. Without your own `XLA_FLAGS`, on x86-64, both use exactly the flags the
+a flag you set is left as you set it, except that the passes above are added to your own
+`--xla_disable_hlo_passes` list. Without your own `XLA_FLAGS`, on x86-64, both use exactly the flags the
 project's tests use. The tests and gate scripts use the strict set: there an `XLA_FLAGS` value that sets one of these
-three flags to something else is refused. Without these flags a run still works, but it is no longer bit for bit what the tests check; on
+three flags to something else is refused. Without these flags a run still works, but it is no longer bit for bit what
+the tests check (and without the two disabled passes a GPU run can be wrong, above); on
 x86-64 the fused multiply-adds change the last digits. XLA:CPU allows floating-point contraction, and arm64
 processors have fused multiply-add, so on a Mac expect differences in the last bits (read from XLA's source, not
 measured).

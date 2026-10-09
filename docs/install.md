@@ -54,6 +54,7 @@ memory of 2.0 GiB (measured three times on 8 cores of an AMD EPYC 7763 CPU node)
   in VS Code). The cube-sphere maps of notebook 06 use `nereus` when it is installed and plain matplotlib otherwise.
   See [notebooks/README.md](../notebooks/README.md).
 - **GPU:** in the same environment, `pip install "jax[cuda12]==0.10.1"` (CUDA 12 and cuDNN come as pip wheels).
+  Then see [parallel.md, "Running on GPUs"](parallel.md#running-on-gpus).
 - **`MJX_UPSTREAM`** is the MITgcm checkout at commit `63cdc0b` (checkpoint69q plus 9 commits).
   mitjax reads the Fortran sources from it (the packages' `*_OPTIONS.h`, the `NAMELIST` statements, the default
   values it cites) and the verification experiments. Another commit is refused: every citation in the code refers

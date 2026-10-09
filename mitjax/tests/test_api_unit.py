@@ -56,7 +56,7 @@ def _exp(name):
 def _flags_ok(api_flag_set):
     """The contract of api_flag_set on four platform names (the gate set itself must stay as it is)."""
     want_x86 = XF.flag_set()
-    ok = XF.GATE_FLAGS == ("--xla_cpu_max_isa=AVX", "--xla_disable_hlo_passes=algsimp",
+    ok = XF.GATE_FLAGS == ("--xla_cpu_max_isa=AVX", "--xla_disable_hlo_passes=algsimp,multi_output_fusion",
                            "--xla_force_host_platform_device_count=4")
     for m in ("x86_64", "AMD64"):
         ok &= api_flag_set(m) == want_x86
@@ -85,11 +85,22 @@ def test_user_xla_flags_win(monkeypatch):
     user = "--xla_force_host_platform_device_count=8 --xla_dump_to=/x"
     got = XF.merge_user_flags(user, XF.api_flag_set("x86_64")).split()
     assert got == ["--xla_force_host_platform_device_count=8", "--xla_dump_to=/x", ISA,
-                   "--xla_disable_hlo_passes=algsimp"], got
+                   "--xla_disable_hlo_passes=algsimp,multi_output_fusion"], got
     monkeypatch.setenv("XLA_FLAGS", user)
     assert XF.set_api_xla_flags("x86_64").split() == got
     monkeypatch.setenv("XLA_FLAGS", "--xla_cpu_max_isa=AVX2")
     assert XF.set_api_xla_flags("x86_64").split()[0] == "--xla_cpu_max_isa=AVX2"   # the user's ISA kept
+    # the user's own pass list keeps the gate set's passes (GPU race 2026-10-09: multi_output_fusion; algsimp);
+    # planted: the merge that leaves the user's list alone drops them
+    for mine, want in (("--xla_disable_hlo_passes=foo", "foo,algsimp,multi_output_fusion"),
+                       ("--xla_disable_hlo_passes=multi_output_fusion", "multi_output_fusion,algsimp"),
+                       ("--xla_disable_hlo_passes=algsimp,multi_output_fusion", "algsimp,multi_output_fusion")):
+        merged = XF.merge_user_flags(mine, XF.api_flag_set("x86_64")).split()
+        assert merged[0] == f"--xla_disable_hlo_passes={want}" and len(merged) == 3, merged
+    with monkeypatch.context() as mp:
+        mp.setattr(XF, "UNION_FLAGS", ())
+        leave_alone = XF.merge_user_flags("--xla_disable_hlo_passes=foo", XF.api_flag_set("x86_64"))
+    assert "multi_output_fusion" not in leave_alone, leave_alone
     # the gates are unchanged: a conflicting user flag is refused (and is the planted merge of the API)
     with pytest.raises(ValueError, match="already sets"):
         XF.gate_xla_flags(user)

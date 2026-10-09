@@ -2,7 +2,7 @@
 (mitjax/__main__.py: the API's Experiment.run(out, devices=N), the API's XLA flags), with `--devices N`.
 
 * XLA flags: with no user XLA_FLAGS the API's string (set_api_xla_flags) is the gates' string (set_gate_xla_flags) on
-  x86-64, under MJX_XLA_FLAG_SET unset and "gpu"; a CLI started by a test inherits the gate XLA_FLAGS and the API's
+  x86-64, under MJX_XLA_FLAG_SET unset and "gate" ("gpu" is retired); a CLI started by a test inherits the gate XLA_FLAGS and the API's
   merge leaves them as they are. Control: the arm64 API set differs from the gate set (no --xla_cpu_max_isa).
 * CLI = API on tutorial_barotropic_gyre/input: `python -m mitjax run` in a subprocess with XLA_FLAGS and
   MJX_XLA_FLAG_SET removed (a user's shell) writes output.txt and pickups byte for byte the in-process exp.run's
@@ -75,7 +75,7 @@ def _same(a, b):
 # ------------------------------------------------------------------------------------------------------ XLA flags
 
 def test_api_flags_equal_gate_flags_on_x86(monkeypatch):
-    for which in (None, "gpu"):
+    for which in (None, "gate"):
         if which is None:
             monkeypatch.delenv("MJX_XLA_FLAG_SET", raising=False)
         else:

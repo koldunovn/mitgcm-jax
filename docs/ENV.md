@@ -85,7 +85,8 @@ correct (verified from `/`: `find_spec('mitjax')` is None, all pins match); the 
   (`provenance.txt`, `pytest.log`, `report.xml`, `verdict.txt`, `git_diff.patch`). The verdict comes from
   `scripts/check_pytest_report.py` + pytest's exit code, never from the job state.
 - `conftest.py` sets the gate `XLA_FLAGS` once (`mitjax/xla_flags.py`: `--xla_cpu_max_isa=AVX
-  --xla_disable_hlo_passes=algsimp --xla_force_host_platform_device_count=4`); a preset `XLA_FLAGS` that sets one of
+  --xla_disable_hlo_passes=algsimp,multi_output_fusion --xla_force_host_platform_device_count=4`; multi_output_fusion
+  since 2026-10-09, the GPU race in the module docstring); a preset `XLA_FLAGS` that sets one of
   these flags to another value is refused. Standalone gate scripts call `mitjax.xla_flags.set_gate_xla_flags()` before
   their first jax computation. No persistent XLA compilation cache (Nikolay's decision in the ECCO port).
 - `conftest.py` also sets `MJX_MINMAX_STRICT=1`: in our tests a verification build without a measured MAX/MIN

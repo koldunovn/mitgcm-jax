@@ -24,7 +24,9 @@ mkdir -p "$OUT/src" && git -C "$REPO" archive --format=tar "$COMMIT" | tar -x -C
 echo "$COMMIT" > "$OUT/COMMIT"
 nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv > "$OUT/gpus.csv" 2>&1
 cd "$OUT/src" || exit 1
-export JAX_PLATFORMS=cuda,cpu MJX_XLA_FLAG_SET=gpu OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK} PYTHONUNBUFFERED=1
+# XLA flags: the gate set (mitjax/xla_flags.py; MJX_XLA_FLAG_SET=gpu is retired since 2026-10-08: XLA compiled a
+# wrong 4-GPU program with algsimp on). Times quoted above were measured with the retired, faster-compiling set.
+export JAX_PLATFORMS=cuda,cpu OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK} PYTHONUNBUFFERED=1
 export PYTHONPATH=$OUT/src PYTHONPYCACHEPREFIX=$OUT/pycache
 LIMIT=$(( $(squeue -h -j "$SLURM_JOB_ID" -o %L | awk -F: '{ if (NF==3) print $1*3600+$2*60+$3; else print $1*60+$2 }') - 120 ))
 timeout "$LIMIT" "$PY" -u scripts/r5_shardgrad/gpu.py "$MODE" "$OUT/res" "$P"

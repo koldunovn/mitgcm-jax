@@ -229,12 +229,18 @@ print(f"differences: {in_order - reversed_tiles:.1E}, {in_order - tree:.1E}")
 # %% [markdown]
 # ## 4. GPUs
 #
-# On GPUs nothing in the code changes: each device is a GPU and the halo copies go from GPU to GPU. Our test suite
-# runs the same sharded gradient programs on 1 and 4 A100 GPUs. Two things differ from the CPU. The reverse sweep on
-# a GPU is not exactly reproducible from run to run, so GPU tests compare P = N with P = 1 against the measured
-# run-to-run scatter of P = 1 (2.6e-15 relative on a 10-step gradient; 4 GPUs against 1 stayed within it); the
-# forward is bitwise across runs and across P. And GPU runs leave out one XLA flag of the CPU set
-# (`MJX_XLA_FLAG_SET=gpu` drops `--xla_disable_hlo_passes=algsimp`), which made the GPU compile of one gradient
-# program 2.8 times faster; GPU results are therefore compared only with GPU results of the same flag set, never
-# bit for bit with the CPU. To use GPUs: install JAX with CUDA support at the version of `constraints.txt`, leave
-# `JAX_PLATFORMS` unset, and pass `devices=` up to the number of GPUs.
+# On GPUs nothing in the code changes: each device is a GPU and the halo copies go from GPU to GPU. To use them,
+# install jax's CUDA wheels (`pip install "jax[cuda12]==0.10.1"`), leave `JAX_PLATFORMS` unset and pass `devices=` up
+# to the number of GPUs. GPU runs use the same XLA flags as the CPU runs of this notebook.
+#
+# One thing differs from the CPU. The forward run on a GPU is bitwise reproducible, from run to run and between 1 and
+# 4 GPUs, but the reverse sweep is not: two runs of the same 10-step gradient on one A100 differ by up to 2.5e-15
+# relative. So our GPU tests compare P = N with P = 1 against that measured run-to-run scatter, and never compare a
+# GPU result bit for bit with the CPU. The checks of this notebook (bitwise between P = 2 and P = 3, the fixed bar
+# 1e-14 at P = 4) are for CPU devices and do not hold on GPUs.
+#
+# This notebook's experiment on 4 A100 GPUs, through the command line
+# ([`scripts/example_gpu.sbatch`](../scripts/example_gpu.sbatch)): `output.txt` identical on 1 and 4 GPUs; the same
+# cost `fc`; the gradient 1.4e-14 relative from the 1-GPU gradient; and the gradient check on 1 GPU matches TAF's
+# `output_adm.txt` to 15 digits (cost) and 16 digits (gradient). The script, its timings and the XLA flags GPUs need
+# are in [`docs/parallel.md`, "Running on GPUs"](../docs/parallel.md#running-on-gpus).
