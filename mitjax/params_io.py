@@ -44,7 +44,7 @@ PINNED = "63cdc0b9602b46bda69df37c5eb9e17396116f67"
 @lru_cache(maxsize=None)
 def _check_upstream():
     """MJX_UPSTREAM is a git checkout (its own top level) at PINNED. The errors say how to get one: a user with an
-    MITgcm clone at another commit adds a worktree of PINNED next to it (Martin Losch's report, 2026-10-09)."""
+    MITgcm clone at another commit adds a worktree of PINNED next to it (a user's report, 2026-10-09)."""
     up, pin = paths.UPSTREAM, PINNED[:7]
     why = f"MITgcm {pin} (the defaults and namelists it reads from the Fortran are cited by line at that commit)"
     try:

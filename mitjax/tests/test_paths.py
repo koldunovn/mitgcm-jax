@@ -107,8 +107,8 @@ def test_paths(monkeypatch, tmp_path):
                              ["scripts/c.sh", "mitjax/d.py"])
 
     # MJX_UPSTREAM at another commit, not a checkout, or a directory inside another checkout: each error gives the
-    # commands that make a checkout at the pinned commit (a worktree next to the user's own clone; Martin Losch's
-    # report 2026-10-09: his clone was at master 7c2f8f2)
+    # commands that make a checkout at the pinned commit (a worktree next to the user's own clone; a user's report
+    # 2026-10-09: the clone was at master 7c2f8f2)
     from mitjax import params_io
     from mitjax import paths as mpaths
 

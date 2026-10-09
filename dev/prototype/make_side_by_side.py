@@ -144,7 +144,7 @@ def measurements_html(m):
 INTRO = """
 <p>Three MITgcm master routines (pinned commit <code>63cdc0b</code>) translated literally into JAX in two array styles. Both
 styles produce the same traced program; the choice between them is about reading the code next to the Fortran.
-<b>Nothing here is decided yet:</b> Nikolay (and Martin Losch) choose the style for all physics code from this page.</p>
+<b>Nothing here is decided yet:</b> Nikolay chooses the style for all physics code from this page.</p>
 <ul>
 <li><b>Fortran-index style</b> (<code>mitjax/farray.py</code>): arrays keep their Fortran declaration
 (<code>uFld(1-OLx:sNx+OLx,1-OLy:sNy+OLy)</code>); a <code>DO</code> loop becomes a loop index object
